@@ -407,7 +407,11 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
     payment_ref = generate_random_id()
     order_number = f"#{order_id}"
     
-    # Calculate order timing
+    # Calculate order timing (ensure not in future)
+    max_date = datetime.now() - timedelta(hours=1)  # At least 1 hour in the past
+    if date >= max_date:
+        date = max_date - timedelta(days=random.randint(0, 7))  # Force to past week
+    
     created_at = date + timedelta(
         hours=random.randint(8, 22),
         minutes=random.randint(0, 59),
@@ -806,9 +810,12 @@ def generate_synthetic_data():
     print(f"   - Base daily orders: {BASE_DAILY_ORDERS}")
     print(f"   - Total toy products: {len(TOY_PRODUCTS)}")
     
-    # Calculate date range (last 12 months)
-    end_date = datetime.now()
+    # Calculate date range (last 12 months, ending yesterday to avoid future dates)
+    end_date = datetime.now() - timedelta(days=1)  # End yesterday to avoid future data
     start_date = end_date - timedelta(days=30 * NUMBER_OF_MONTHS)
+    
+    print(f"📅 Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
+    print(f"📊 Generating data for {(end_date - start_date).days} days")
     
     all_orders = []
     total_orders_generated = 0
