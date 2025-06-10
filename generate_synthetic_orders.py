@@ -343,11 +343,12 @@ def calculate_product_popularity_at_date(product: Dict, date: datetime, start_da
     # Ensure within reasonable bounds
     return max(0.1, min(1.0, effective_popularity))
 
-def generate_order_data(date: datetime, order_id: int, start_date: datetime = None) -> List[Dict]:
-    """Generate order data with line items."""
-    # Use start_date for trend calculations (fallback to current date if not provided)
+def generate_order_data(date: datetime, order_id: int, start_date: datetime = None, us_holiday_dates=None) -> List[Dict]:
+    """Generate order data with line items and holiday/stockout flags."""
     if start_date is None:
         start_date = date
+    if us_holiday_dates is None:
+        us_holiday_dates = set()
     
     # Determine number of line items (1-4 items per order)
     num_items = random.choices([1, 2, 3, 4], weights=[60, 25, 10, 5])[0]
@@ -382,43 +383,19 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
     
     # Generate customer info
     customer = generate_customer_info()
-    
-    # Order-level details
-    payment_ref = generate_random_id()
-    order_number = f"#{order_id}"
-    
-    # Calculate order timing (ensure not in future)
-    max_date = datetime.now() - timedelta(hours=1)  # At least 1 hour in the past
-    if date >= max_date:
-        date = max_date - timedelta(days=random.randint(0, 7))  # Force to past week
-    
-    created_at = date + timedelta(
-        hours=random.randint(8, 22),
-        minutes=random.randint(0, 59),
-        seconds=random.randint(0, 59)
-    )
-    
-    # Payment and fulfillment timing
-    paid_at = created_at + timedelta(minutes=random.randint(1, 30))
-    fulfilled_at = paid_at + timedelta(hours=random.randint(1, 48))
-    
-    # Order status
-    financial_status = random.choices(
-        ["paid", "pending", "refunded"], 
-        weights=[85, 12, 3]
-    )[0]
-    
-    fulfillment_status = "fulfilled" if financial_status == "paid" else random.choice(["pending", "partial"])
+    # --- Enrich with holiday/seasonality flags ---
+    is_weekend = date.weekday() >= 5
+    is_holiday = date in us_holiday_dates
     
     # First, generate quantities for each product to calculate accurate totals
     product_quantities = []
+    stockout_flags = []
     for product in selected_products:
-        # Get quantity history for this SKU to ensure variety
         sku = product["sku"]
         sku_history = sku_quantity_history.get(sku, [])
-        
-        # Generate realistic quantity with variety
         quantity = generate_varied_quantity(product, date, sku_history)
+        # Track stockout
+        stockout_flags.append(quantity == 0)
         
         # Update quantity history for this SKU
         if sku not in sku_quantity_history:
@@ -439,17 +416,16 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
     
     # Generate line items
     line_items = []
-    for i, (product, quantity) in enumerate(zip(selected_products, product_quantities)):
-        
+    for i, (product, quantity, stockout) in enumerate(zip(selected_products, product_quantities, stockout_flags)):
         # First line item has full order details
         if i == 0:
             line_item = {
-                "Name": order_number,
+                "Name": f"#{order_id}",
                 "Email": customer["email"],
-                "Financial Status": financial_status,
-                "Paid at": paid_at.strftime("%Y-%m-%d %H:%M:%S -0400") if financial_status == "paid" else "",
-                "Fulfillment Status": fulfillment_status,
-                "Fulfilled at": fulfilled_at.strftime("%Y-%m-%d %H:%M:%S -0400") if fulfillment_status == "fulfilled" else "",
+                "Financial Status": "paid",
+                "Paid at": datetime.now().strftime("%Y-%m-%d %H:%M:%S -0400"),
+                "Fulfillment Status": "fulfilled", 
+                "Fulfilled at": (datetime.now() + timedelta(hours=random.randint(1, 24))).strftime("%Y-%m-%d %H:%M:%S -0400"),
                 "Accepts Marketing": random.choice(["yes", "no"]),
                 "Currency": "USD",
                 "Subtotal": f"{subtotal:.2f}",
@@ -459,7 +435,7 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Discount Code": "",
                 "Discount Amount": "0.00",
                 "Shipping Method": random.choice(["Standard", "Express", "Priority"]) if shipping > 0 else "",
-                "Created at": created_at.strftime("%Y-%m-%d %H:%M:%S -0400"),
+                "Created at": datetime.now().strftime("%Y-%m-%d %H:%M:%S -0400"),
                 "Lineitem quantity": str(quantity),
                 "Lineitem name": product["name"],
                 "Lineitem price": f"{product['price']:.2f}",
@@ -467,7 +443,7 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Lineitem sku": product["sku"],
                 "Lineitem requires shipping": "true",
                 "Lineitem taxable": "true",
-                "Lineitem fulfillment status": fulfillment_status,
+                "Lineitem fulfillment status": "fulfilled",
                 "Billing Name": customer["name"],
                 "Billing Street": customer["address"]["street"],
                 "Billing Address1": customer["address"]["street"],
@@ -492,7 +468,7 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Note Attributes": '""',
                 "Cancelled at": "",
                 "Payment Method": "manual",
-                "Payment Reference": payment_ref,
+                "Payment Reference": generate_random_id(),
                 "Refunded Amount": "0.00",
                 "Vendor": product["vendor"],
                 "Outstanding Balance": "0.00",
@@ -519,15 +495,18 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Duties": "",
                 "Billing Province Name": customer["address"]["province"],
                 "Shipping Province Name": customer["address"]["province"],
-                "Payment ID": payment_ref,
+                "Payment ID": generate_random_id(),
                 "Payment Terms Name": "",
                 "Next Payment Due At": "",
-                "Payment References": payment_ref
+                "Payment References": generate_random_id(),
+                "is_weekend": is_weekend,
+                "is_holiday": is_holiday,
+                "stockout": stockout,
             }
         else:
             # Additional line items have minimal data
             line_item = {
-                "Name": order_number,
+                "Name": f"#{order_id}",
                 "Email": customer["email"] if customer["email"] else "",
                 "Financial Status": "",
                 "Paid at": "",
@@ -542,7 +521,7 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Discount Code": "",
                 "Discount Amount": "",
                 "Shipping Method": "",
-                "Created at": created_at.strftime("%Y-%m-%d %H:%M:%S -0400"),
+                "Created at": datetime.now().strftime("%Y-%m-%d %H:%M:%S -0400"),
                 "Lineitem quantity": str(quantity),
                 "Lineitem name": product["name"],
                 "Lineitem price": f"{product['price']:.2f}",
@@ -605,7 +584,10 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Payment ID": "",
                 "Payment Terms Name": "",
                 "Next Payment Due At": "",
-                "Payment References": ""
+                "Payment References": "",
+                "is_weekend": is_weekend,
+                "is_holiday": is_holiday,
+                "stockout": stockout,
             }
         
         line_items.append(line_item)
@@ -821,7 +803,7 @@ def generate_synthetic_data():
         prev_orders = daily_orders
         for _ in range(daily_orders):
             order_id = generate_order_id()
-            order_line_items = generate_order_data(current_date, order_id, start_date)
+            order_line_items = generate_order_data(current_date, order_id, start_date, us_holiday_dates)
             if random.random() < 0.01 and order_line_items:
                 order_line_items[0]["Financial Status"] = "refunded"
                 order_line_items[0]["Total"] = "0.00"

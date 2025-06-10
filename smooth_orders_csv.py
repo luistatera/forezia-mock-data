@@ -23,16 +23,38 @@ all_dates = pd.date_range(daily['date'].min(), daily['date'].max())
 full_idx = pd.MultiIndex.from_product([all_skus, all_dates], names=['Lineitem sku', 'date'])
 daily = daily.set_index(['Lineitem sku', 'date']).reindex(full_idx, fill_value=0).reset_index()
 
+# --- Outlier capping using IQR (upper fence only) ---
+def cap_upper_outliers(s, k=1.5):
+    Q1 = s.quantile(0.25)
+    Q3 = s.quantile(0.75)
+    IQR = Q3 - Q1
+    upper = Q3 + k * IQR
+    capped = s.copy()
+    # Only cap values above upper fence
+    capped[s > upper] = upper
+    return capped
+
+# --- Sanity check: percent of nonzero sales zeroed ---
+def percent_zeroed(original, smoothed):
+    nonzero = (original > 0)
+    zeroed = (original > 0) & (smoothed == 0)
+    if nonzero.sum() == 0:
+        return 0.0
+    return 100 * zeroed.sum() / nonzero.sum()
+
 # Smoothing function
+# (apply outlier capping before smoothing)
 def smooth_and_cap(sales, window=SMOOTH_WINDOW, max_change=MAX_DAILY_CHANGE):
+    # Cap upper outliers only
+    capped = cap_upper_outliers(pd.Series(sales))
     # Moving average
-    smoothed = pd.Series(sales).rolling(window, min_periods=1, center=True).mean()
+    smoothed = capped.rolling(window, min_periods=1, center=True).mean()
     # Cap daily change
-    capped = [smoothed.iloc[0]]
+    capped2 = [smoothed.iloc[0]]
     for s in smoothed.iloc[1:]:
-        prev = capped[-1]
-        capped.append(max(min(s, prev + max_change), prev - max_change))
-    return np.round(capped).astype(int)
+        prev = capped2[-1]
+        capped2.append(max(min(s, prev + max_change), prev - max_change))
+    return np.round(capped2).astype(int)
 
 daily['smoothed_sales'] = daily.groupby('Lineitem sku')['sales'].transform(smooth_and_cap)
 
@@ -73,5 +95,10 @@ for (sku, d), group in smoothed.groupby(['Lineitem sku', 'date']):
 # Create DataFrame and save
 smoothed_orders = pd.DataFrame(rows)
 smoothed_orders.to_csv(OUTPUT_FILE, index=False)
+
+# --- After smoothing, check for excessive zeroing ---
+zeroed_pct = percent_zeroed(daily['sales'], daily['smoothed_sales'])
+if zeroed_pct > 5:
+    print(f"WARNING: {zeroed_pct:.2f}% of nonzero sales were zeroed after smoothing! Check your pipeline.")
 
 print(f"Smoothed orders saved to {OUTPUT_FILE}. Total rows: {len(smoothed_orders)}")
