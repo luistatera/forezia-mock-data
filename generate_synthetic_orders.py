@@ -416,7 +416,11 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
     
     # Generate line items
     line_items = []
+    possible_fulfillment_statuses = ["fulfilled", "unfulfilled", "partially fulfilled", "shipped", "pending"]
+
     for i, (product, quantity, stockout) in enumerate(zip(selected_products, product_quantities, stockout_flags)):
+        line_item_actual_status = random.choice(possible_fulfillment_statuses)
+
         # First line item has full order details
         if i == 0:
             line_item = {
@@ -443,7 +447,7 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Lineitem sku": product["sku"],
                 "Lineitem requires shipping": "true",
                 "Lineitem taxable": "true",
-                "Lineitem fulfillment status": "fulfilled",
+                "Lineitem fulfillment status": line_item_actual_status, # MODIFIED
                 "Billing Name": customer["name"],
                 "Billing Street": customer["address"]["street"],
                 "Billing Address1": customer["address"]["street"],
@@ -529,7 +533,7 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Lineitem sku": product["sku"],
                 "Lineitem requires shipping": "true",
                 "Lineitem taxable": "true",
-                "Lineitem fulfillment status": fulfillment_status,
+                "Lineitem fulfillment status": line_item_actual_status, # MODIFIED
                 "Billing Name": "",
                 "Billing Street": "",
                 "Billing Address1": "",
@@ -589,7 +593,6 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "is_holiday": is_holiday,
                 "stockout": stockout,
             }
-        
         line_items.append(line_item)
     
     return line_items
@@ -815,11 +818,25 @@ def generate_synthetic_data():
     all_orders = ensure_minimum_sku_distribution(all_orders, start_date, end_date)
     output_filename = f"toy_sales_synthetic_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     if all_orders:
-        fieldnames = all_orders[0].keys()
+        # Collect all unique keys from all dictionaries in all_orders to form a comprehensive set of fieldnames
+        master_fieldnames_set = set()
+        for order_dict in all_orders:
+            master_fieldnames_set.update(order_dict.keys())
+        
+        # Convert set to a list. Sorting ensures consistent column order in the CSV.
+        fieldnames = sorted(list(master_fieldnames_set))
+
+        # Prepare rows for CSV: ensure each dictionary has all keys from fieldnames,
+        # filling missing ones with an empty string.
+        rows_to_write = []
+        for order_dict in all_orders:
+            row = {fieldname: order_dict.get(fieldname, "") for fieldname in fieldnames}
+            rows_to_write.append(row)
+
         with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
-            writer.writerows(all_orders)
+            writer.writerows(rows_to_write) # Write the processed rows
     print(f"✅ Data generation complete!")
     print(f"📁 Output file: {output_filename}")
     print(f"🎯 Total orders generated: {total_orders_generated}")
