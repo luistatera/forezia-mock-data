@@ -10,6 +10,7 @@ import string
 from datetime import datetime, timedelta
 from typing import List, Dict, Tuple
 import math
+import holidays
 
 # Configuration Variables
 NUMBER_OF_MONTHS = 12  # Generate data for last 12 months
@@ -146,89 +147,95 @@ def generate_order_id() -> int:
     return generate_order_id.counter
 
 def calculate_seasonal_factor(date: datetime) -> float:
-    """Calculate seasonal factor with stronger, more obvious patterns."""
+    """Calculate seasonal factor with more realistic, less extreme patterns."""
     month = date.month
     day_of_year = date.timetuple().tm_yday
-    
-    # Base seasonal multipliers (more pronounced)
+    # Softer seasonal multipliers
     seasonal_multipliers = {
-        1: 1.3,   # January - New Year gifts, post-holiday sales
-        2: 0.7,   # February - post-holiday slump
-        3: 0.9,   # March - spring preparation
-        4: 1.2,   # April - Easter, spring toys
-        5: 1.1,   # May - outdoor season starts
-        6: 0.8,   # June - summer vacation planning
-        7: 1.2,   # July - peak summer, vacation toys
-        8: 1.0,   # August - back-to-school prep
-        9: 1.1,   # September - back to school
-        10: 1.3,  # October - Halloween, holiday prep
-        11: 1.6,  # November - Black Friday, holiday shopping
-        12: 1.8,  # December - Christmas peak
+        1: 1.10,   # January
+        2: 0.92,   # February
+        3: 0.97,   # March
+        4: 1.05,   # April
+        5: 1.03,   # May
+        6: 0.98,   # June
+        7: 1.04,   # July
+        8: 1.00,   # August
+        9: 1.02,   # September
+        10: 1.08,  # October
+        11: 1.13,  # November
+        12: 1.18,  # December
     }
-    
     base_seasonal = seasonal_multipliers.get(month, 1.0)
-    
-    # Add sinusoidal variation for smoother transitions
-    yearly_cycle = 1 + 0.3 * math.sin(2 * math.pi * day_of_year / 365.25 + math.pi/2)
-    
-    # Combine base seasonal with smooth cycle
+    # Smoother sinusoidal variation
+    yearly_cycle = 1 + 0.12 * math.sin(2 * math.pi * day_of_year / 365.25 + math.pi/2)
     return (base_seasonal + yearly_cycle) / 2
 
-def calculate_daily_orders(date: datetime, month_index: int) -> int:
-    """Calculate number of orders for a given date with improved patterns."""
-    # Base growth calculation with some volatility
-    monthly_multiplier = (1 + AVERAGE_MONTHLY_GROWTH) ** month_index
-    
-    # Weekend boost
-    weekend_multiplier = WEEKEND_BOOST_FACTOR if date.weekday() >= 5 else 1.0
-    
-    # Seasonal factor
+def get_us_holidays(start_date, end_date):
+    """Return a set of US holiday dates between start_date and end_date."""
+    us_holidays = holidays.country_holidays('US', years=range(start_date.year, end_date.year + 1))
+    return set(us_holidays.keys())
+
+def calculate_daily_orders(date: datetime, month_index: int, us_holiday_dates=None, prev_orders: int = None, sku: str = None, sku_trend: float = 0.0, mean_sku_sales: float = 10.0) -> int:
+    """Calculate number of orders for a given date with advanced realism: event spikes, trend drift, heteroskedastic noise, and improved outlier smoothing."""
+    if us_holiday_dates is None:
+        us_holiday_dates = set()
+    # --- Trend Drift ---
+    drift = sku_trend * (date - (date.replace(month=1, day=1))).days
+    # --- Base multipliers ---
+    monthly_multiplier = (1 + AVERAGE_MONTHLY_GROWTH * random.uniform(0.92, 1.08)) ** month_index
+    weekend_multiplier = 1.18 if date.weekday() >= 5 else 1.0
     seasonal_multiplier = calculate_seasonal_factor(date)
-    
-    # Add weekly patterns (mid-week dip)
     weekday = date.weekday()
     weekly_pattern = {
         0: 1.0,   # Monday
-        1: 1.1,   # Tuesday
-        2: 0.9,   # Wednesday (mid-week dip)
+        1: 1.02,  # Tuesday
+        2: 0.98,  # Wednesday
         3: 1.0,   # Thursday
-        4: 1.2,   # Friday (pre-weekend boost)
-        5: 1.8,   # Saturday
-        6: 1.6,   # Sunday
+        4: 1.05,  # Friday
+        5: 1.18,  # Saturday
+        6: 1.12,  # Sunday
     }
     weekly_multiplier = weekly_pattern.get(weekday, 1.0)
-    
-    # Add monthly progression (stronger sales towards month-end)
     day_of_month = date.day
     if day_of_month <= 10:
-        monthly_progression = 0.9  # Slower start
+        monthly_progression = 0.98
     elif day_of_month <= 20:
-        monthly_progression = 1.0  # Normal
+        monthly_progression = 1.0
     else:
-        monthly_progression = 1.1  # End of month boost
-    
-    # Random daily variation with some autocorrelation
-    daily_variation = random.uniform(0.8, 1.2)
-    
-    # Calculate final order count
-    orders = (BASE_DAILY_ORDERS * monthly_multiplier * weekend_multiplier * 
-              seasonal_multiplier * weekly_multiplier * monthly_progression * daily_variation)
-    
-    # Add some noise and ensure minimum orders
-    noise = random.uniform(-2, 3)
-    return max(int(orders + noise), 1)
+        monthly_progression = 1.02
+    # --- Event/Promotion Spikes ---
+    event_multiplier = 1.0
+    # 3-day window around major holidays
+    for offset in [-1, 0, 1]:
+        event_date = date + timedelta(days=offset)
+        if event_date in us_holiday_dates:
+            if event_date.month == 12 and event_date.day in [24, 25]:
+                event_multiplier = max(event_multiplier, random.uniform(1.2, 1.5))
+            elif event_date.month == 11 and event_date.day in [24, 25, 26]:
+                event_multiplier = max(event_multiplier, random.uniform(1.15, 1.3))
+            elif event_date.month == 10 and event_date.day == 31:
+                event_multiplier = max(event_multiplier, random.uniform(1.1, 1.2))
+    # --- Heteroskedastic Noise ---
+    base_orders = (BASE_DAILY_ORDERS * monthly_multiplier * weekend_multiplier * 
+                   seasonal_multiplier * weekly_multiplier * monthly_progression * event_multiplier)
+    base_orders += drift
+    # Mild autocorrelation
+    if prev_orders is not None:
+        base_orders = 0.5 * base_orders + 0.5 * prev_orders
+    # Noise ~ Normal(mean, 0.1*mean)
+    noise = random.gauss(0, 0.1 * max(mean_sku_sales, 1))
+    # Clamp to reasonable range
+    orders = int(max(5, min(40, base_orders + noise)))
+    return orders
 
 # Global tracking for quantity patterns per SKU
 sku_quantity_history = {}
 
 def generate_varied_quantity(product: Dict, date: datetime, sku_history: List[int] = None) -> int:
-    """Generate realistic quantity with variety based on product popularity and patterns."""
+    """Generate realistic quantity with heteroskedastic noise and weekday/weekend bias for zeros."""
     if not ENABLE_QUANTITY_VARIETY:
-        return random.randint(1, 3)  # Fallback to original logic
-    
+        return random.randint(1, 3)
     popularity = product.get("popularity", 0.5)
-    
-    # Select pattern based on product popularity
     if popularity >= 0.85:
         pattern = QUANTITY_PATTERNS['high_demand']
     elif popularity >= 0.70:
@@ -237,46 +244,19 @@ def generate_varied_quantity(product: Dict, date: datetime, sku_history: List[in
         pattern = QUANTITY_PATTERNS['low_demand']
     else:
         pattern = QUANTITY_PATTERNS['variable']
-    
-    # Add day-of-week variation
     is_weekend = date.weekday() >= 5
-    weekend_boost = 1.3 if is_weekend else 1.0
-    
-    # Add seasonal variation
     seasonal_boost = calculate_seasonal_factor(date)
-    
-    # Calculate base quantity using weighted selection
+    # --- Weekday/Weekend zero bias ---
+    if is_weekend and random.random() < 0.15:
+        return 0
+    if not is_weekend and random.random() < 0.03:
+        return 0
     base_qty = random.choices(pattern['values'], weights=pattern['weights'])[0]
-    
-    # Apply boosts probabilistically
-    if is_weekend and random.random() < 0.4:  # 40% chance of weekend boost
-        base_qty += random.randint(1, 2)
-    
-    if seasonal_boost > 1.1 and random.random() < (seasonal_boost - 1.0):
-        base_qty += random.randint(0, 2)
-    
-    # Avoid too many consecutive same values for variety
-    if sku_history and len(sku_history) >= 2:
-        recent_values = sku_history[-2:]
-        if len(set(recent_values)) == 1 and base_qty == recent_values[-1]:
-            # Force variety - choose different value
-            available_values = [v for v in pattern['values'] if v != base_qty and v > 0]
-            if available_values:
-                base_qty = random.choice(available_values)
-    
-    # Ensure within bounds
-    final_qty = max(MIN_QUANTITY, min(MAX_QUANTITY, base_qty))
-    
-    # Handle stock-outs realistically (but rarely for Prophet compatibility)
-    if random.random() < STOCK_OUT_PROBABILITY and popularity < 0.6:
-        return 0  # Out of stock
-    
-    # Bulk order probability for popular items
-    if popularity > 0.8 and random.random() < BULK_ORDER_PROBABILITY:
-        final_qty += random.randint(2, 4)
-    
-    # Ensure minimum of 1 for Prophet compatibility (avoid too many zeros)
-    return max(1, min(MAX_QUANTITY, final_qty))
+    # Heteroskedastic noise: scale by mean
+    mean_qty = sum(pattern['values']) / len(pattern['values'])
+    noisy_qty = int(round(base_qty + random.gauss(0, 0.15 * mean_qty)))
+    final_qty = max(MIN_QUANTITY, min(MAX_QUANTITY, noisy_qty))
+    return max(1, final_qty)
 
 def get_demand_pattern(popularity: float, date: datetime) -> str:
     """Determine demand pattern based on popularity and date."""
@@ -801,7 +781,7 @@ def ensure_minimum_sku_distribution(all_orders: List[Dict], start_date: datetime
     return all_orders
 
 def generate_synthetic_data():
-    """Generate the complete synthetic dataset."""
+    """Generate the complete synthetic dataset with advanced realism: event spikes, trend drift, heteroskedastic noise, and improved smoothing."""
     print("🚀 Starting synthetic toy sales data generation...")
     print(f"📊 Configuration:")
     print(f"   - Months to generate: {NUMBER_OF_MONTHS}")
@@ -809,58 +789,55 @@ def generate_synthetic_data():
     print(f"   - Weekend boost factor: {WEEKEND_BOOST_FACTOR}x")
     print(f"   - Base daily orders: {BASE_DAILY_ORDERS}")
     print(f"   - Total toy products: {len(TOY_PRODUCTS)}")
-    
-    # Calculate date range (last 12 months, ending yesterday to avoid future dates)
-    end_date = datetime.now() - timedelta(days=1)  # End yesterday to avoid future data
+    end_date = datetime.now() - timedelta(days=1)
     start_date = end_date - timedelta(days=30 * NUMBER_OF_MONTHS)
-    
     print(f"📅 Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
     print(f"📊 Generating data for {(end_date - start_date).days} days")
-    
     all_orders = []
     total_orders_generated = 0
-    
-    # Generate data for each day
+    us_holiday_dates = get_us_holidays(start_date, end_date)
     current_date = start_date
     month_index = 0
     last_month = start_date.month
-    
+    prev_orders = None
+    # Assign a random trend to each SKU for drift
+    sku_trends = {p['sku']: random.uniform(-0.02, 0.04) for p in TOY_PRODUCTS}
+    sku_means = {p['sku']: p.get('popularity', 0.5) * 15 + 5 for p in TOY_PRODUCTS}
     while current_date <= end_date:
-        # Update month index when month changes
+        if random.random() < 0.02:
+            current_date += timedelta(days=1)
+            prev_orders = None
+            continue
         if current_date.month != last_month:
             month_index += 1
             last_month = current_date.month
-        
-        # Calculate orders for this day
-        daily_orders = calculate_daily_orders(current_date, month_index)
-        
-        # Generate orders for the day
+        rep_product = random.choice(TOY_PRODUCTS)
+        rep_sku = rep_product["sku"]
+        trend = sku_trends[rep_sku]
+        mean_sales = sku_means[rep_sku]
+        daily_orders = calculate_daily_orders(current_date, month_index, us_holiday_dates, prev_orders, rep_sku, trend, mean_sales)
+        if random.random() < 0.02:
+            daily_orders = 0
+        prev_orders = daily_orders
         for _ in range(daily_orders):
             order_id = generate_order_id()
             order_line_items = generate_order_data(current_date, order_id, start_date)
+            if random.random() < 0.01 and order_line_items:
+                order_line_items[0]["Financial Status"] = "refunded"
+                order_line_items[0]["Total"] = "0.00"
             all_orders.extend(order_line_items)
             total_orders_generated += 1
-        
-        # Progress indicator
         if current_date.day == 1:
             print(f"📅 Processing {current_date.strftime('%B %Y')} - Orders so far: {total_orders_generated}")
-        
         current_date += timedelta(days=1)
-    
-    # Ensure minimum SKU distribution
     all_orders = ensure_minimum_sku_distribution(all_orders, start_date, end_date)
-    
-    # Write to CSV
     output_filename = f"toy_sales_synthetic_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
-    
     if all_orders:
         fieldnames = all_orders[0].keys()
-        
         with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(all_orders)
-    
     print(f"✅ Data generation complete!")
     print(f"📁 Output file: {output_filename}")
     print(f"🎯 Total orders generated: {total_orders_generated}")
