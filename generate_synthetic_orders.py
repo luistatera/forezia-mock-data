@@ -26,10 +26,25 @@ CYCLICAL_PATTERNS = True  # Enable cyclical demand patterns
 TREND_STRENGTH = 0.4  # How strong trending signals should be
 
 # Prophet Model Compatibility Settings
-MIN_SALES_DAYS_PER_SKU = 15  # Minimum days a SKU must be sold to avoid Prophet crashes
-MIN_TOTAL_UNITS_PER_SKU = 20  # Minimum total units sold per SKU across all time
+MIN_SALES_DAYS_PER_SKU = 30  # Minimum days a SKU must be sold to avoid Prophet crashes
+MIN_TOTAL_UNITS_PER_SKU = 50  # Minimum total units sold per SKU across all time
 ENSURE_SKU_DISTRIBUTION = True  # Ensure all SKUs have adequate sales distribution
 SKU_POPULARITY_WEIGHTS = True  # Use realistic popularity weights for SKUs
+
+# New Discount Configuration for Prophet Training Data
+ENABLE_DISCOUNTS = True  # Enable discount functionality
+
+# Discount ratio configuration - simplified for Prophet model
+DISCOUNT_RATIO_PROBABILITIES = {
+    0.00: 0.75,   # 75% of orders have no discount (most common)
+    0.10: 0.08,   # 8% have 10% discount (light promotions)
+    0.15: 0.06,   # 6% have 15% discount
+    0.20: 0.05,   # 5% have 20% discount
+    0.25: 0.03,   # 3% have 25% discount
+    0.30: 0.02,   # 2% have 30% discount (seasonal sales)
+    0.40: 0.005,  # 0.5% have 40% discount (rare big promotions)
+    0.50: 0.005,  # 0.5% have 50% discount (very rare deep promotions)
+}
 
 # Quantity Variety Settings for Better ML Performance
 ENABLE_QUANTITY_VARIETY = True  # Enable varied quantity patterns
@@ -121,19 +136,61 @@ CUSTOMERS = [
     {"name": "Harper Jackson", "email": "harper.jackson@example.com", "phone": "+1234567804"},
 ]
 
-# Address database
-ADDRESSES = [
-    {"street": "123 Maple Street", "city": "Springfield", "zip": "12345", "province": "NY", "country": "US"},
-    {"street": "456 Oak Avenue", "city": "Madison", "zip": "53706", "province": "WI", "country": "US"},
-    {"street": "789 Pine Road", "city": "Austin", "zip": "73301", "province": "TX", "country": "US"},
-    {"street": "321 Elm Street", "city": "Portland", "zip": "97201", "province": "OR", "country": "US"},
-    {"street": "654 Cedar Lane", "city": "Denver", "zip": "80202", "province": "CO", "country": "US"},
-    {"street": "987 Birch Drive", "city": "Seattle", "zip": "98101", "province": "WA", "country": "US"},
-    {"street": "147 Willow Way", "city": "Phoenix", "zip": "85001", "province": "AZ", "country": "US"},
-    {"street": "258 Spruce Court", "city": "Miami", "zip": "33101", "province": "FL", "country": "US"},
-    {"street": "369 Aspen Place", "city": "Boston", "zip": "02101", "province": "MA", "country": "US"},
-    {"street": "741 Poplar Boulevard", "city": "Chicago", "zip": "60601", "province": "IL", "country": "US"},
-]
+# Supported Countries Configuration
+SUPPORTED_COUNTRIES = ['US', 'CA', 'GB', 'AU']  # Each order is randomly assigned to one of these countries
+
+# Address database with multiple countries
+# Each order will randomly select one country and then choose a random address from that country
+ADDRESSES = {
+    'US': [
+        {"street": "123 Maple Street", "city": "Springfield", "zip": "12345", "province": "NY", "country": "US"},
+        {"street": "456 Oak Avenue", "city": "Madison", "zip": "53706", "province": "WI", "country": "US"},
+        {"street": "789 Pine Road", "city": "Austin", "zip": "73301", "province": "TX", "country": "US"},
+        {"street": "321 Elm Street", "city": "Portland", "zip": "97201", "province": "OR", "country": "US"},
+        {"street": "654 Cedar Lane", "city": "Denver", "zip": "80202", "province": "CO", "country": "US"},
+        {"street": "987 Birch Drive", "city": "Seattle", "zip": "98101", "province": "WA", "country": "US"},
+        {"street": "147 Willow Way", "city": "Phoenix", "zip": "85001", "province": "AZ", "country": "US"},
+        {"street": "258 Spruce Court", "city": "Miami", "zip": "33101", "province": "FL", "country": "US"},
+        {"street": "369 Aspen Place", "city": "Boston", "zip": "02101", "province": "MA", "country": "US"},
+        {"street": "741 Poplar Boulevard", "city": "Chicago", "zip": "60601", "province": "IL", "country": "US"},
+    ],
+    'CA': [
+        {"street": "100 King Street", "city": "Toronto", "zip": "M5H 1A1", "province": "ON", "country": "CA"},
+        {"street": "200 Robson Street", "city": "Vancouver", "zip": "V6B 2A7", "province": "BC", "country": "CA"},
+        {"street": "300 8th Avenue SW", "city": "Calgary", "zip": "T2P 1C5", "province": "AB", "country": "CA"},
+        {"street": "400 Portage Avenue", "city": "Winnipeg", "zip": "R3C 0C8", "province": "MB", "country": "CA"},
+        {"street": "500 University Avenue", "city": "Toronto", "zip": "M5G 1V7", "province": "ON", "country": "CA"},
+        {"street": "600 René-Lévesque Blvd", "city": "Montreal", "zip": "H3B 1H7", "province": "QC", "country": "CA"},
+        {"street": "700 Water Street", "city": "St. John's", "zip": "A1E 1B6", "province": "NL", "country": "CA"},
+        {"street": "800 Jasper Avenue", "city": "Edmonton", "zip": "T5J 3N4", "province": "AB", "country": "CA"},
+        {"street": "900 Georgia Street", "city": "Vancouver", "zip": "V6C 2W6", "province": "BC", "country": "CA"},
+        {"street": "1000 Yonge Street", "city": "Toronto", "zip": "M4W 2K2", "province": "ON", "country": "CA"},
+    ],
+    'GB': [
+        {"street": "10 Downing Street", "city": "London", "zip": "SW1A 2AA", "province": "England", "country": "GB"},
+        {"street": "15 Baker Street", "city": "London", "zip": "NW1 6XE", "province": "England", "country": "GB"},
+        {"street": "20 Princess Street", "city": "Manchester", "zip": "M1 4LY", "province": "England", "country": "GB"},
+        {"street": "25 Rose Street", "city": "Edinburgh", "zip": "EH2 2PR", "province": "Scotland", "country": "GB"},
+        {"street": "30 Castle Street", "city": "Cardiff", "zip": "CF10 1BH", "province": "Wales", "country": "GB"},
+        {"street": "35 High Street", "city": "Birmingham", "zip": "B4 7SL", "province": "England", "country": "GB"},
+        {"street": "40 Church Street", "city": "Liverpool", "zip": "L1 3AX", "province": "England", "country": "GB"},
+        {"street": "45 Queen Street", "city": "Glasgow", "zip": "G1 3DX", "province": "Scotland", "country": "GB"},
+        {"street": "50 Market Street", "city": "Leeds", "zip": "LS1 6DT", "province": "England", "country": "GB"},
+        {"street": "55 King Street", "city": "Bristol", "zip": "BS1 4ER", "province": "England", "country": "GB"},
+    ],
+    'AU': [
+        {"street": "123 Collins Street", "city": "Melbourne", "zip": "3000", "province": "VIC", "country": "AU"},
+        {"street": "456 George Street", "city": "Sydney", "zip": "2000", "province": "NSW", "country": "AU"},
+        {"street": "789 Queen Street", "city": "Brisbane", "zip": "4000", "province": "QLD", "country": "AU"},
+        {"street": "321 King William Street", "city": "Adelaide", "zip": "5000", "province": "SA", "country": "AU"},
+        {"street": "654 Hay Street", "city": "Perth", "zip": "6000", "province": "WA", "country": "AU"},
+        {"street": "987 Elizabeth Street", "city": "Hobart", "zip": "7000", "province": "TAS", "country": "AU"},
+        {"street": "147 Smith Street", "city": "Darwin", "zip": "0800", "province": "NT", "country": "AU"},
+        {"street": "258 Northbourne Avenue", "city": "Canberra", "zip": "2600", "province": "ACT", "country": "AU"},
+        {"street": "369 Flinders Street", "city": "Melbourne", "zip": "3000", "province": "VIC", "country": "AU"},
+        {"street": "741 Pitt Street", "city": "Sydney", "zip": "2000", "province": "NSW", "country": "AU"},
+    ]
+}
 
 def generate_random_id(length: int = 25) -> str:
     """Generate a random alphanumeric ID."""
@@ -283,13 +340,88 @@ def add_realistic_noise(base_value: int, noise_factor: float = 0.15) -> int:
     noisy_value = int(base_value * (1 + noise))
     return max(1, min(MAX_QUANTITY, noisy_value))
 
+def get_season_from_date(date: datetime) -> str:
+    """Determine season from date for seasonal discount codes."""
+    month = date.month
+    if month in [12, 1, 2]:
+        return "winter"
+    elif month in [3, 4, 5]:
+        return "spring"
+    elif month in [6, 7, 8]:
+        return "summer"
+    else:
+        return "fall"
+
+def generate_discount_ratio(date: datetime, subtotal: float, total_quantity: int, is_holiday: bool = False) -> float:
+    """Generate realistic discount ratio for Prophet training data."""
+    if not ENABLE_DISCOUNTS or subtotal == 0:
+        return 0.0
+    
+    # Base distribution with contextual adjustments
+    base_ratios = list(DISCOUNT_RATIO_PROBABILITIES.keys())
+    base_weights = list(DISCOUNT_RATIO_PROBABILITIES.values())
+    
+    # Adjust weights based on context
+    adjusted_weights = base_weights.copy()
+    
+    # Increase probability of discounts on weekends
+    if date.weekday() >= 5:  # Weekend
+        # Shift probability from 0.0 to higher discount ratios
+        for i in range(len(adjusted_weights)):
+            if base_ratios[i] == 0.0:
+                adjusted_weights[i] *= 0.8  # Reduce no-discount probability
+            elif base_ratios[i] > 0.0:
+                adjusted_weights[i] *= 1.3  # Increase discount probability
+    
+    # Increase probability of discounts on holidays
+    if is_holiday:
+        for i in range(len(adjusted_weights)):
+            if base_ratios[i] == 0.0:
+                adjusted_weights[i] *= 0.6  # Reduce no-discount probability more
+            elif base_ratios[i] >= 0.20:
+                adjusted_weights[i] *= 2.0  # Double higher discount probabilities
+    
+    # Bulk orders get more discounts
+    if total_quantity >= 4:
+        for i in range(len(adjusted_weights)):
+            if base_ratios[i] == 0.0:
+                adjusted_weights[i] *= 0.7
+            elif base_ratios[i] >= 0.15:
+                adjusted_weights[i] *= 1.5
+    
+    # Normalize weights
+    total_weight = sum(adjusted_weights)
+    normalized_weights = [w / total_weight for w in adjusted_weights]
+    
+    # Select discount ratio
+    selected_ratio = random.choices(base_ratios, weights=normalized_weights, k=1)[0]
+    
+    # Round to 4 decimal places as specified
+    return round(selected_ratio, 4)
+
+def generate_realistic_discount(date: datetime, subtotal: float, total_quantity: int, is_holiday: bool = False) -> tuple:
+    """Generate realistic discount ratio and amount for Prophet training data."""
+    discount_ratio = generate_discount_ratio(date, subtotal, total_quantity, is_holiday)
+    
+    if discount_ratio == 0.0:
+        return 0.0, 0.0
+    
+    # Calculate discount amount
+    discount_amount = discount_ratio * subtotal
+    
+    return round(discount_ratio, 4), round(discount_amount, 2)
+
 def generate_customer_info() -> Dict:
-    """Generate random customer information."""
+    """Generate random customer information with random country selection."""
     use_customer = random.choice([True, False])  # 50% chance of having customer info
     
     if use_customer:
         customer = random.choice(CUSTOMERS)
-        address = random.choice(ADDRESSES)
+        # Randomly select a country from supported countries
+        selected_country = random.choice(SUPPORTED_COUNTRIES)
+        # Choose a random address from the selected country
+        address = random.choice(ADDRESSES[selected_country])
+        
         return {
             "name": customer["name"],
             "email": customer["email"],
@@ -297,11 +429,15 @@ def generate_customer_info() -> Dict:
             "address": address
         }
     else:
+        # Even for empty customer info, we need to assign a country for the order
+        selected_country = random.choice(SUPPORTED_COUNTRIES)
+        address = random.choice(ADDRESSES[selected_country])
+        
         return {
             "name": "",
             "email": "",
             "phone": "",
-            "address": {"street": "", "city": "", "zip": "", "province": "", "country": ""}
+            "address": address  # Still include address with country info
         }
 
 def calculate_trend_multiplier(product: Dict, date: datetime, start_date: datetime) -> float:
@@ -410,9 +546,16 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
     
     # Calculate totals using actual quantities
     subtotal = sum(product["price"] * qty for product, qty in zip(selected_products, product_quantities))
-    shipping = 0.0 if subtotal > 50 else random.choice([5.99, 7.99, 9.99])
-    taxes = subtotal * 0.08  # 8% tax
-    total = subtotal + shipping + taxes
+    
+    # Generate realistic discount ratio for Prophet training data
+    total_quantity = sum(product_quantities)
+    discount_ratio, discount_amount = generate_realistic_discount(date, subtotal, total_quantity, is_holiday)
+    
+    # Apply discount to subtotal
+    discounted_subtotal = subtotal - discount_amount
+    shipping = 0.0 if discounted_subtotal > 50 else random.choice([5.99, 7.99, 9.99])
+    taxes = discounted_subtotal * 0.08  # 8% tax on discounted amount
+    total = discounted_subtotal + shipping + taxes
     
     # Generate line items
     line_items = []
@@ -423,19 +566,20 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Name": f"#{order_id}",
                 "Email": customer["email"],
                 "Financial Status": "paid",
-                "Paid at": datetime.now().strftime("%Y-%m-%d %H:%M:%S -0400"),
+                "Paid at": date.strftime("%Y-%m-%d %H:%M:%S -0400"),
                 "Fulfillment Status": "fulfilled", 
-                "Fulfilled at": (datetime.now() + timedelta(hours=random.randint(1, 24))).strftime("%Y-%m-%d %H:%M:%S -0400"),
+                "Fulfilled at": (date + timedelta(hours=random.randint(1, 24))).strftime("%Y-%m-%d %H:%M:%S -0400"),
                 "Accepts Marketing": random.choice(["yes", "no"]),
                 "Currency": "USD",
                 "Subtotal": f"{subtotal:.2f}",
                 "Shipping": f"{shipping:.2f}",
                 "Taxes": f"{taxes:.2f}",
                 "Total": f"{total:.2f}",
-                "Discount Code": "",
-                "Discount Amount": "0.00",
+                "Discount Code": "",  # Remove discount codes, only use discount_ratio
+                "Discount Amount": f"{discount_amount:.2f}",
+                "discount_ratio": f"{discount_ratio:.4f}",  # New field for Prophet
                 "Shipping Method": random.choice(["Standard", "Express", "Priority"]) if shipping > 0 else "",
-                "Created at": datetime.now().strftime("%Y-%m-%d %H:%M:%S -0400"),
+                "Created at": date.strftime("%Y-%m-%d %H:%M:%S -0400"),
                 "Lineitem quantity": str(quantity),
                 "Lineitem name": product["name"],
                 "Lineitem price": f"{product['price']:.2f}",
@@ -527,8 +671,9 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Total": "",
                 "Discount Code": "",
                 "Discount Amount": "",
+                "discount_ratio": "",  # Empty for additional line items
                 "Shipping Method": "",
-                "Created at": datetime.now().strftime("%Y-%m-%d %H:%M:%S -0400"),
+                "Created at": date.strftime("%Y-%m-%d %H:%M:%S -0400"),
                 "Lineitem quantity": str(quantity),
                 "Lineitem name": product["name"],
                 "Lineitem price": f"{product['price']:.2f}",
@@ -682,6 +827,17 @@ def ensure_minimum_sku_distribution(all_orders: List[Dict], start_date: datetime
                     minutes=random.randint(0, 59)
                 )
                 
+                # Calculate discount for this additional order
+                subtotal = product['price'] * quantity
+                is_holiday = date in get_us_holidays(start_date, end_date) if start_date and end_date else False
+                discount_ratio, discount_amount = generate_realistic_discount(date, subtotal, quantity, is_holiday)
+                
+                # Apply discount
+                discounted_subtotal = subtotal - discount_amount
+                shipping_cost = 0.0 if discounted_subtotal > 50 else 5.99
+                taxes = discounted_subtotal * 0.08
+                total = discounted_subtotal + shipping_cost + taxes
+                
                 # Single line item order focused on the needed SKU
                 line_item = {
                     "Name": f"#{next_order_id}",
@@ -692,12 +848,13 @@ def ensure_minimum_sku_distribution(all_orders: List[Dict], start_date: datetime
                     "Fulfilled at": (created_at + timedelta(hours=random.randint(1, 24))).strftime("%Y-%m-%d %H:%M:%S -0400"),
                     "Accepts Marketing": random.choice(["yes", "no"]),
                     "Currency": "USD",
-                    "Subtotal": f"{product['price'] * quantity:.2f}",
-                    "Shipping": "0.00",
-                    "Taxes": f"{product['price'] * quantity * 0.08:.2f}",
-                    "Total": f"{product['price'] * quantity * 1.08:.2f}",
-                    "Discount Code": "",
-                    "Discount Amount": "0.00",
+                    "Subtotal": f"{subtotal:.2f}",
+                    "Shipping": f"{shipping_cost:.2f}",
+                    "Taxes": f"{taxes:.2f}",
+                    "Total": f"{total:.2f}",
+                    "Discount Code": "",  # Remove discount codes, only use discount_ratio
+                    "Discount Amount": f"{discount_amount:.2f}",
+                    "discount_ratio": f"{discount_ratio:.4f}",  # New field for Prophet
                     "Shipping Method": "Standard",
                     "Created at": created_at.strftime("%Y-%m-%d %H:%M:%S -0400"),
                     "Updated at": created_at.strftime("%Y-%m-%d %H:%M:%S -0400"),
@@ -833,7 +990,7 @@ def generate_synthetic_data():
         fieldnames = [
             "Name", "Email", "Financial Status", "Paid at", "Fulfillment Status", "Fulfilled at",
             "Accepts Marketing", "Currency", "Subtotal", "Shipping", "Taxes", "Total", "Discount Code",
-            "Discount Amount", "Shipping Method", "Created at", "Lineitem quantity", "Lineitem name",
+            "Discount Amount", "discount_ratio", "Shipping Method", "Created at", "Lineitem quantity", "Lineitem name",
             "Lineitem price", "Lineitem compare at price", "Lineitem sku", "Lineitem requires shipping",
             "Lineitem taxable", "Lineitem fulfillment status", "Billing Name", "Billing Street",
             "Billing Address1", "Billing Address2", "Billing Company", "Billing City", "Billing Zip",

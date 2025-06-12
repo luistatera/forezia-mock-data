@@ -96,6 +96,14 @@ Each product includes:
 - **Stock-out Simulation**: 5% probability of zero inventory
 - **Bulk Orders**: 20% probability of high-quantity orders
 - **Customer Diversity**: 15 realistic customer profiles with addresses
+- **🏷️ Comprehensive Discount System**: Realistic promotional patterns for ML training
+
+### 🏷️ New Discount System for Prophet Training
+- **Simplified discount_ratio Field**: Clean ratio values between 0.00 and 0.50 for Prophet regressors
+- **Realistic Distribution**: 75% no discount, gradually decreasing probabilities for higher discounts
+- **Contextual Adjustments**: Higher discount probabilities on weekends, holidays, and bulk orders
+- **Prophet-Optimized**: Clean numerical values perfect for time series forecasting models
+- **ML Training Ready**: Designed specifically for discount propensity and revenue impact analysis
 
 ## ⚙️ Configuration
 
@@ -120,6 +128,19 @@ ENSURE_SKU_DISTRIBUTION = True  # Force minimum distribution
 ENABLE_QUANTITY_VARIETY = True  # Enable varied quantity patterns
 STOCK_OUT_PROBABILITY = 0.05   # 5% chance of stock-outs
 BULK_ORDER_PROBABILITY = 0.20  # 20% chance of bulk orders
+
+# Discount System
+ENABLE_DISCOUNTS = True         # Enable discount functionality
+DISCOUNT_RATIO_PROBABILITIES = { # Probability distribution for discount ratios
+    0.00: 0.75,   # 75% of orders have no discount (most common)
+    0.10: 0.08,   # 8% have 10% discount (light promotions)
+    0.15: 0.06,   # 6% have 15% discount
+    0.20: 0.05,   # 5% have 20% discount
+    0.25: 0.03,   # 3% have 25% discount
+    0.30: 0.02,   # 2% have 30% discount (seasonal sales)
+    0.40: 0.005,  # 0.5% have 40% discount (rare big promotions)
+    0.50: 0.005,  # 0.5% have 50% discount (very rare deep promotions)
+}
 ```
 
 ## 📈 Generated Data Format
@@ -128,6 +149,7 @@ The output CSV follows Shopify order export format with these key fields:
 
 - **Order Info**: Name, Email, Created at, Total, Subtotal
 - **Financial**: Payment Method, Financial Status, Paid at
+- **Promotions**: **discount_ratio, Discount Amount** (NEW Prophet-optimized field!)
 - **Fulfillment**: Fulfillment Status, Fulfilled at, Shipping
 - **Line Items**: Quantity, Name, Price, SKU, Vendor
 - **Customer**: Billing/Shipping addresses, Phone
@@ -166,12 +188,16 @@ The output CSV follows Shopify order export format with these key fields:
 - **Demand Prediction**: Product-level demand forecasting
 - **Seasonal Analysis**: Holiday and seasonal trend detection
 - **Anomaly Detection**: Unusual sales pattern identification
+- **🆕 Discount Propensity**: Predict customer discount usage likelihood
+- **🆕 Revenue Impact**: Analyze promotional effectiveness and ROI
+- **🆕 Price Optimization**: Model optimal discount strategies
 
 ### Business Intelligence
 - **Sales Analytics**: Revenue and volume analysis
 - **Product Performance**: SKU-level performance tracking
 - **Customer Insights**: Purchase pattern analysis
 - **Inventory Planning**: Stock level optimization
+- **🆕 Promotional Analytics**: Discount performance and customer segmentation
 
 ### Development & Testing
 - **API Testing**: Realistic data for e-commerce APIs
