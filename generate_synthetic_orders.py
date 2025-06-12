@@ -529,7 +529,7 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Lineitem sku": product["sku"],
                 "Lineitem requires shipping": "true",
                 "Lineitem taxable": "true",
-                "Lineitem fulfillment status": fulfillment_status,
+                "Lineitem fulfillment status": "fulfilled",
                 "Billing Name": "",
                 "Billing Street": "",
                 "Billing Address1": "",
@@ -815,7 +815,12 @@ def generate_synthetic_data():
     all_orders = ensure_minimum_sku_distribution(all_orders, start_date, end_date)
     output_filename = f"toy_sales_synthetic_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     if all_orders:
-        fieldnames = all_orders[0].keys()
+        # Collect all unique keys from all orders to ensure comprehensive fieldnames
+        all_fieldnames = set()
+        for order in all_orders:
+            all_fieldnames.update(order.keys())
+        fieldnames = sorted(list(all_fieldnames))  # Use sorted list for consistent column order
+
         with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
             writer.writeheader()
