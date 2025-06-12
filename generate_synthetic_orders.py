@@ -502,6 +502,13 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "is_weekend": is_weekend,
                 "is_holiday": is_holiday,
                 "stockout": stockout,
+                "Lineitem grams": "",
+                "Lineitem variant id": "",
+                "Processed at": "",
+                "Customer": "",
+                "Lineitem variant": "",
+                "Updated at": "",
+                "Lineitem product id": "",
             }
         else:
             # Additional line items have minimal data
@@ -588,6 +595,13 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "is_weekend": is_weekend,
                 "is_holiday": is_holiday,
                 "stockout": stockout,
+                "Lineitem grams": "",
+                "Lineitem variant id": "",
+                "Processed at": "",
+                "Customer": "",
+                "Lineitem variant": "",
+                "Updated at": "",
+                "Lineitem product id": "",
             }
         
         line_items.append(line_item)
@@ -815,11 +829,26 @@ def generate_synthetic_data():
     all_orders = ensure_minimum_sku_distribution(all_orders, start_date, end_date)
     output_filename = f"toy_sales_synthetic_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv"
     if all_orders:
-        # Collect all unique keys from all orders to ensure comprehensive fieldnames
-        all_fieldnames = set()
-        for order in all_orders:
-            all_fieldnames.update(order.keys())
-        fieldnames = sorted(list(all_fieldnames))  # Use sorted list for consistent column order
+        # Define the specific column order as requested
+        fieldnames = [
+            "Name", "Email", "Financial Status", "Paid at", "Fulfillment Status", "Fulfilled at",
+            "Accepts Marketing", "Currency", "Subtotal", "Shipping", "Taxes", "Total", "Discount Code",
+            "Discount Amount", "Shipping Method", "Created at", "Lineitem quantity", "Lineitem name",
+            "Lineitem price", "Lineitem compare at price", "Lineitem sku", "Lineitem requires shipping",
+            "Lineitem taxable", "Lineitem fulfillment status", "Billing Name", "Billing Street",
+            "Billing Address1", "Billing Address2", "Billing Company", "Billing City", "Billing Zip",
+            "Billing Province", "Billing Country", "Billing Phone", "Shipping Name", "Shipping Street",
+            "Shipping Address1", "Shipping Address2", "Shipping Company", "Shipping City", "Shipping Zip",
+            "Shipping Province", "Shipping Country", "Shipping Phone", "Notes", "Note Attributes",
+            "Cancelled at", "Payment Method", "Payment Reference", "Refunded Amount", "Vendor",
+            "Outstanding Balance", "Employee", "Location", "Device ID", "Id", "Tags", "Risk Level",
+            "Source", "Lineitem discount", "Tax 1 Name", "Tax 1 Value", "Tax 2 Name", "Tax 2 Value",
+            "Tax 3 Name", "Tax 3 Value", "Tax 4 Name", "Tax 4 Value", "Tax 5 Name", "Tax 5 Value",
+            "Phone", "Receipt Number", "Duties", "Billing Province Name", "Shipping Province Name",
+            "Payment ID", "Payment Terms Name", "Next Payment Due At", "Payment References", 
+            "is_weekend", "is_holiday", "stockout", "Lineitem grams", "Lineitem variant id", 
+            "Processed at", "Customer", "Lineitem variant", "Updated at", "Lineitem product id"
+        ]
 
         with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
