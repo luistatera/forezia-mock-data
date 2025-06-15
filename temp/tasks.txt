@@ -1,0 +1,69 @@
+
+### 🔹 **1. Add Controlled Noise**
+
+**Why**: Real-world demand fluctuates unpredictably.
+**Suggestion**:
+
+```json
+"random_noise_factor": 0.1  // adds +/-10% Gaussian noise to daily orders
+```
+
+Add small randomness to demand after all calculations. You could even simulate user behavior variation due to weather, press, etc.
+
+---
+
+### 🔹 **2. Add Holiday Spikes (if not already)**
+
+You simulate holidays in features — now simulate *demand lifts* on those days:
+
+```json
+"holiday_demand_spike_probability": 0.4,
+"holiday_boost_factor": 2.5
+```
+
+Only apply to major holidays (e.g., BFCM, Christmas), not minor ones.
+
+---
+
+### 🔹 **3. Vary `average_monthly_growth` Per SKU**
+
+If you're generating >1 SKU soon:
+
+```json
+"variable_growth_per_sku": true,
+"growth_range": [0.02, 0.15]
+```
+
+You can assign slower growth to niche SKUs and rapid growth to trending ones.
+
+---
+
+### 🔹 **4. Improve Quantity Realism**
+
+Instead of flat `[0, 8]`, use skewed distribution:
+
+* 60% = quantity 1
+* 30% = quantity 2–3
+* 10% = quantity 4–8
+
+That mimics what actually happens on Shopify (few bulk orders).
+
+---
+
+### 🔹 **5. Add Shipping Delay or Fulfillment Delay**
+
+If you plan to test lead time forecasts or churn:
+
+```json
+"fulfillment_delay_probability": 0.10,
+"delay_days_range": [1, 7]
+```
+
+---
+
+### 🔹 **6. Add Product Lifecycle Effects (optional)**
+
+If simulating long time spans:
+
+* Introduce demand decay after 6–9 months (to simulate seasonal/obsolete products)
+* Use sigmoid or exponential decay
