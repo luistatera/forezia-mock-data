@@ -1,0 +1,31 @@
+
+
+### 🔹 **4. Improve Quantity Realism**
+
+Instead of flat `[0, 8]`, use skewed distribution:
+
+* 60% = quantity 1
+* 30% = quantity 2–3
+* 10% = quantity 4–8
+
+That mimics what actually happens on Shopify (few bulk orders).
+
+---
+
+### 🔹 **5. Add Shipping Delay or Fulfillment Delay**
+
+If you plan to test lead time forecasts or churn:
+
+```json
+"fulfillment_delay_probability": 0.10,
+"delay_days_range": [1, 7]
+```
+
+---
+
+### 🔹 **6. Add Product Lifecycle Effects (optional)**
+
+If simulating long time spans:
+
+* Introduce demand decay after 6–9 months (to simulate seasonal/obsolete products)
+* Use sigmoid or exponential decay

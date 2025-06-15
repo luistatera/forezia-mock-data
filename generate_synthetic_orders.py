@@ -31,11 +31,22 @@ def load_config():
 CONFIG = load_config()
 
 # Configuration Variables - loaded from config.json or using defaults
+NUMBER_OF_DAYS_TO_GENERATE = CONFIG.get('data_generation', {}).get('NUMBER_OF_DAYS_TO_GENERATE', 30) # Default to 30 if not found
 NUMBER_OF_MONTHS = CONFIG.get('data_generation', {}).get('number_of_months', 12)
 AVERAGE_MONTHLY_GROWTH = CONFIG.get('data_generation', {}).get('average_monthly_growth', 0.08)
 WEEKEND_BOOST_FACTOR = CONFIG.get('data_generation', {}).get('weekend_boost_factor', 1.8)
 BASE_DAILY_ORDERS = CONFIG.get('data_generation', {}).get('base_daily_orders', 15)
 SEASONAL_FACTOR = CONFIG.get('data_generation', {}).get('seasonal_factor', 0.3)
+RANDOM_NOISE_FACTOR = CONFIG.get('data_generation', {}).get('random_noise_factor', 0.1)
+VARIABLE_GROWTH_PER_SKU = CONFIG.get('data_generation', {}).get('variable_growth_per_sku', False)
+GROWTH_RANGE = CONFIG.get('data_generation', {}).get('growth_range', [0.02, 0.15])
+
+# Random Noise Configuration
+# The RANDOM_NOISE_FACTOR adds controlled randomness to simulate real-world demand fluctuations
+# - 0.1 = ±10% Gaussian noise (realistic for most businesses)
+# - 0.05 = ±5% noise (more stable demand)
+# - 0.2 = ±20% noise (highly volatile demand)
+# This affects both daily order counts and individual quantity calculations
 
 # Number of SKUs to generate (loaded from config)
 NUMBER_OF_SKUS = CONFIG.get('data_generation', {}).get('number_of_skus', 50)
@@ -298,14 +309,18 @@ def get_us_holidays(start_date, end_date):
     us_holidays = holidays.country_holidays('US', years=range(start_date.year, end_date.year + 1))
     return set(us_holidays.keys())
 
-def calculate_daily_orders(date: datetime, month_index: int, us_holiday_dates=None, prev_orders: int = None, sku: str = None, sku_trend: float = 0.0, mean_sku_sales: float = 10.0) -> int:
+def calculate_daily_orders(date: datetime, month_index: int, us_holiday_dates=None, prev_orders: int = None, sku: str = None, sku_trend: float = 0.0, mean_sku_sales: float = 10.0, sku_specific_growth: float = None) -> int:
     """Calculate number of orders for a given date with advanced realism: event spikes, trend drift, heteroskedastic noise, and improved outlier smoothing."""
     if us_holiday_dates is None:
         us_holiday_dates = set()
     # --- Trend Drift ---
     drift = sku_trend * (date - (date.replace(month=1, day=1))).days
     # --- Base multipliers ---
-    monthly_multiplier = (1 + AVERAGE_MONTHLY_GROWTH * random.uniform(0.92, 1.08)) ** month_index
+    current_monthly_growth = AVERAGE_MONTHLY_GROWTH
+    if VARIABLE_GROWTH_PER_SKU and sku_specific_growth is not None:
+        current_monthly_growth = sku_specific_growth
+    
+    monthly_multiplier = (1 + current_monthly_growth * random.uniform(0.92, 1.08)) ** month_index
     weekend_multiplier = 1.18 if date.weekday() >= 5 else 1.0
     seasonal_multiplier = calculate_seasonal_factor(date)
     weekday = date.weekday()
@@ -345,8 +360,11 @@ def calculate_daily_orders(date: datetime, month_index: int, us_holiday_dates=No
     # Mild autocorrelation
     if prev_orders is not None:
         base_orders = 0.5 * base_orders + 0.5 * prev_orders
-    # Noise ~ Normal(mean, 0.1*mean)
-    noise = random.gauss(0, 0.1 * max(mean_sku_sales, 1))
+    
+    # Apply configurable Gaussian noise for realistic demand fluctuation
+    # Noise factor controls the intensity of random fluctuation (0.1 = ±10%)
+    noise = random.gauss(0, RANDOM_NOISE_FACTOR * max(base_orders, 1))
+    
     # Clamp to reasonable range
     orders = int(max(5, min(40, base_orders + noise)))
     return orders
@@ -375,9 +393,11 @@ def generate_varied_quantity(product: Dict, date: datetime, sku_history: List[in
     if not is_weekend and random.random() < 0.03:
         return 0
     base_qty = random.choices(pattern['values'], weights=pattern['weights'])[0]
-    # Heteroskedastic noise: scale by mean
+    
+    # Apply configurable noise to quantity generation
+    # Use RANDOM_NOISE_FACTOR for consistent noise across all calculations
     mean_qty = sum(pattern['values']) / len(pattern['values'])
-    noisy_qty = int(round(base_qty + random.gauss(0, 0.15 * mean_qty)))
+    noisy_qty = int(round(base_qty + random.gauss(0, RANDOM_NOISE_FACTOR * max(mean_qty, 1))))
     final_qty = max(MIN_QUANTITY, min(MAX_QUANTITY, noisy_qty))
     return max(1, final_qty)
 
@@ -400,8 +420,11 @@ def get_demand_pattern(popularity: float, date: datetime) -> str:
     else:
         return 'variable'
 
-def add_realistic_noise(base_value: int, noise_factor: float = 0.15) -> int:
-    """Add realistic noise to quantity values."""
+def add_realistic_noise(base_value: int, noise_factor: float = None) -> int:
+    """Add realistic noise to quantity values using configurable noise factor."""
+    if noise_factor is None:
+        noise_factor = RANDOM_NOISE_FACTOR
+    
     noise = random.uniform(-noise_factor, noise_factor)
     noisy_value = int(base_value * (1 + noise))
     return max(1, min(MAX_QUANTITY, noisy_value))
@@ -648,251 +671,154 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
         selected_products = []
         
         for _ in range(num_items):
-            if products:  # Ensure we have products left to choose from
-                chosen_product = random.choices(products, weights=weights, k=1)[0]
-                selected_products.append(chosen_product)
-                # Remove chosen product and its weight to avoid duplicates in same order
-                chosen_index = products.index(chosen_product)
-                products.pop(chosen_index)
-                weights.pop(chosen_index)
+            if not products:
+                break
+            
+            try:
+                selected_product = random.choices(products, weights=weights)[0]
+                selected_products.append(selected_product)
+                
+                # Remove selected product to avoid duplicates in same order
+                idx = products.index(selected_product)
+                products.pop(idx)
+                weights.pop(idx)
+            except (ValueError, IndexError):
+                # Fallback to random selection
+                if products:
+                    selected_products.append(random.choice(products))
+                break
     else:
-        # Original random selection (fallback)
-        selected_products = random.sample(TOY_PRODUCTS, num_items)
+        # Simple random selection without popularity weighting
+        selected_products = random.choices(TOY_PRODUCTS, k=min(num_items, len(TOY_PRODUCTS)))
     
-    # Generate customer info
-    customer = generate_customer_info()
-    # --- Enrich with holiday/seasonality flags ---
-    is_weekend = date.weekday() >= 5
-    is_holiday = date in us_holiday_dates
-    
-    # First, generate quantities for each product to calculate accurate totals
-    product_quantities = []
-    stockout_flags = []
-    for product in selected_products:
-        sku = product["sku"]
-        sku_history = sku_quantity_history.get(sku, [])
-        quantity = generate_varied_quantity(product, date, sku_history)
-        # Track stockout
-        stockout_flags.append(quantity == 0)
-        
-        # Update quantity history for this SKU
-        if sku not in sku_quantity_history:
-            sku_quantity_history[sku] = []
-        sku_quantity_history[sku].append(quantity)
-        
-        # Keep only last 10 quantities for pattern tracking
-        if len(sku_quantity_history[sku]) > 10:
-            sku_quantity_history[sku] = sku_quantity_history[sku][-10:]
-        
-        product_quantities.append(quantity)
-    
-    # Calculate totals using actual quantities
-    subtotal = sum(product["price"] * qty for product, qty in zip(selected_products, product_quantities))
-    
-    # Generate realistic discount ratio for Prophet training data
-    total_quantity = sum(product_quantities)
-    discount_ratio, discount_amount = generate_realistic_discount(date, subtotal, total_quantity, is_holiday)
-    
-    # Generate discount code based on discount ratio and context
-    discount_code = generate_discount_code(date, discount_ratio, is_holiday)
-    
-    # Apply discount to subtotal
-    discounted_subtotal = subtotal - discount_amount
-    shipping = 0.0 if discounted_subtotal > 50 else random.choice([5.99, 7.99, 9.99])
-    taxes = discounted_subtotal * 0.08  # 8% tax on discounted amount
-    total = discounted_subtotal + shipping + taxes
-    
-    # Generate line items
     line_items = []
-    for i, (product, quantity, stockout) in enumerate(zip(selected_products, product_quantities, stockout_flags)):
-        # First line item has full order details
-        if i == 0:
-            line_item = {
-                "Name": f"#{order_id}",
-                "Email": customer["email"],
-                "Financial Status": "paid",
-                "Paid at": date.strftime("%Y-%m-%d %H:%M:%S -0400"),
-                "Fulfillment Status": "fulfilled", 
-                "Fulfilled at": (date + timedelta(hours=random.randint(1, 24))).strftime("%Y-%m-%d %H:%M:%S -0400"),
-                "Accepts Marketing": random.choice(["yes", "no"]),
-                "Currency": "USD",
-                "Subtotal": f"{subtotal:.2f}",
-                "Shipping": f"{shipping:.2f}",
-                "Taxes": f"{taxes:.2f}",
-                "Total": f"{total:.2f}",
-                "Discount Code": discount_code,
-                "Discount Amount": f"{discount_amount:.2f}",
-                "discount_ratio": f"{discount_ratio:.4f}",  # New field for Prophet
-                "Shipping Method": random.choice(["Standard", "Express", "Priority"]) if shipping > 0 else "",
-                "Created at": date.strftime("%Y-%m-%d %H:%M:%S -0400"),
-                "Lineitem quantity": str(quantity),
-                "Lineitem name": product["name"],
-                "Lineitem price": f"{product['price']:.2f}",
-                "Lineitem compare at price": "",
-                "Lineitem sku": product["sku"],
-                "Lineitem requires shipping": "true",
-                "Lineitem taxable": "true",
-                "Lineitem fulfillment status": "fulfilled",
-                "Billing Name": customer["name"],
-                "Billing Street": customer["address"]["street"],
-                "Billing Address1": customer["address"]["street"],
-                "Billing Address2": "",
-                "Billing Company": "",
-                "Billing City": customer["address"]["city"],
-                "Billing Zip": customer["address"]["zip"],
-                "Billing Province": customer["address"]["province"],
-                "Billing Country": customer["address"]["country"],
-                "Billing Phone": customer["phone"],
-                "Shipping Name": customer["name"],
-                "Shipping Street": customer["address"]["street"],
-                "Shipping Address1": customer["address"]["street"],
-                "Shipping Address2": "",
-                "Shipping Company": "",
-                "Shipping City": customer["address"]["city"],
-                "Shipping Zip": customer["address"]["zip"],
-                "Shipping Province": customer["address"]["province"],
-                "Shipping Country": customer["address"]["country"],
-                "Shipping Phone": customer["phone"],
-                "Notes": "",
-                "Note Attributes": '""',
-                "Cancelled at": "",
-                "Payment Method": "manual",
-                "Payment Reference": generate_random_id(),
-                "Refunded Amount": "0.00",
-                "Vendor": product["vendor"],
-                "Outstanding Balance": "0.00",
-                "Employee": "Store Manager",
-                "Location": "Main Store",
-                "Device ID": "",
-                "Id": str(random.randint(6000000000000, 7000000000000)),
-                "Tags": "",
-                "Risk Level": "Low",
-                "Source": "shopify_draft_order",
-                "Lineitem discount": "0.00",
-                "Tax 1 Name": "",
-                "Tax 1 Value": "",
-                "Tax 2 Name": "",
-                "Tax 2 Value": "",
-                "Tax 3 Name": "",
-                "Tax 3 Value": "",
-                "Tax 4 Name": "",
-                "Tax 4 Value": "",
-                "Tax 5 Name": "",
-                "Tax 5 Value": "",
-                "Phone": customer["phone"],
-                "Receipt Number": "",
-                "Duties": "",
-                "Billing Province Name": customer["address"]["province"],
-                "Shipping Province Name": customer["address"]["province"],
-                "Payment ID": generate_random_id(),
-                "Payment Terms Name": "",
-                "Next Payment Due At": "",
-                "Payment References": generate_random_id(),
-                "is_weekend": is_weekend,
-                "is_holiday": is_holiday,
-                "stockout": stockout,
-                "Lineitem grams": "",
-                "Lineitem variant id": "",
-                "Processed at": "",
-                "Customer": "",
-                "Lineitem variant": "",
-                "Updated at": "",
-                "Lineitem product id": "",
-            }
-        else:
-            # Additional line items have minimal data
-            line_item = {
-                "Name": f"#{order_id}",
-                "Email": customer["email"] if customer["email"] else "",
-                "Financial Status": "",
-                "Paid at": "",
-                "Fulfillment Status": "",
-                "Fulfilled at": "",
-                "Accepts Marketing": "",
-                "Currency": "",
-                "Subtotal": "",
-                "Shipping": "",
-                "Taxes": "",
-                "Total": "",
-                "Discount Code": "",
-                "Discount Amount": "",
-                "discount_ratio": "",  # Empty for additional line items
-                "Shipping Method": "",
-                "Created at": date.strftime("%Y-%m-%d %H:%M:%S -0400"),
-                "Lineitem quantity": str(quantity),
-                "Lineitem name": product["name"],
-                "Lineitem price": f"{product['price']:.2f}",
-                "Lineitem compare at price": "",
-                "Lineitem sku": product["sku"],
-                "Lineitem requires shipping": "true",
-                "Lineitem taxable": "true",
-                "Lineitem fulfillment status": "fulfilled",
-                "Billing Name": "",
-                "Billing Street": "",
-                "Billing Address1": "",
-                "Billing Address2": "",
-                "Billing Company": "",
-                "Billing City": "",
-                "Billing Zip": "",
-                "Billing Province": "",
-                "Billing Country": "",
-                "Billing Phone": "",
-                "Shipping Name": "",
-                "Shipping Street": "",
-                "Shipping Address1": "",
-                "Shipping Address2": "",
-                "Shipping Company": "",
-                "Shipping City": "",
-                "Shipping Zip": "",
-                "Shipping Province": "",
-                "Shipping Country": "",
-                "Shipping Phone": "",
-                "Notes": "",
-                "Note Attributes": "",
-                "Cancelled at": "",
-                "Payment Method": "",
-                "Payment Reference": "",
-                "Refunded Amount": "",
-                "Vendor": product["vendor"],
-                "Outstanding Balance": "",
-                "Employee": "",
-                "Location": "",
-                "Device ID": "",
-                "Id": "",
-                "Tags": "",
-                "Risk Level": "",
-                "Source": "",
-                "Lineitem discount": "0.00",
-                "Tax 1 Name": "",
-                "Tax 1 Value": "",
-                "Tax 2 Name": "",
-                "Tax 2 Value": "",
-                "Tax 3 Name": "",
-                "Tax 3 Value": "",
-                "Tax 4 Name": "",
-                "Tax 4 Value": "",
-                "Tax 5 Name": "",
-                "Tax 5 Value": "",
-                "Phone": customer["phone"] if customer["phone"] else "",
-                "Receipt Number": "",
-                "Duties": "",
-                "Billing Province Name": "",
-                "Shipping Province Name": "",
-                "Payment ID": "",
-                "Payment Terms Name": "",
-                "Next Payment Due At": "",
-                "Payment References": "",
-                "is_weekend": is_weekend,
-                "is_holiday": is_holiday,
-                "stockout": stockout,
-                "Lineitem grams": "",
-                "Lineitem variant id": "",
-                "Processed at": "",
-                "Customer": "",
-                "Lineitem variant": "",
-                "Updated at": "",
-                "Lineitem product id": "",
-            }
+    for product in selected_products:
+        # Generate quantity for this line item
+        quantity = random.choices(
+            [1, 2, 3, 4, 5], 
+            weights=[50, 25, 15, 7, 3]
+        )[0]
+        
+        # Calculate base subtotal
+        item_price = product['price']
+        subtotal = item_price * quantity
+        
+        # Generate customer info
+        customer = generate_customer_info()
+        
+        # Calculate discount
+        is_holiday = date in us_holiday_dates
+        discount_ratio, discount_amount = generate_realistic_discount(date, subtotal, quantity, is_holiday)
+        
+        # Generate discount code if there's a discount
+        discount_code = generate_discount_code(date, discount_ratio, discount_amount) if discount_amount > 0 else ""
+        
+        # Apply discount
+        discounted_subtotal = subtotal - discount_amount
+        
+        # Calculate shipping and taxes
+        shipping_cost = 0.0 if discounted_subtotal > 50 else 5.99
+        taxes = discounted_subtotal * 0.08
+        total = discounted_subtotal + shipping_cost + taxes
+        
+        # Create timestamp
+        created_at = date + timedelta(
+            hours=random.randint(8, 22),
+            minutes=random.randint(0, 59)
+        )
+        
+        line_item = {
+            "Name": f"#{order_id}",
+            "Email": customer["email"],
+            "Financial Status": "paid",
+            "Paid at": created_at.strftime("%Y-%m-%d %H:%M:%S -0400"),
+            "Fulfillment Status": "fulfilled",
+            "Fulfilled at": (created_at + timedelta(hours=random.randint(1, 24))).strftime("%Y-%m-%d %H:%M:%S -0400"),
+            "Accepts Marketing": random.choice(["yes", "no"]),
+            "Currency": "USD",
+            "Subtotal": f"{subtotal:.2f}",
+            "Shipping": f"{shipping_cost:.2f}",
+            "Taxes": f"{taxes:.2f}",
+            "Total": f"{total:.2f}",
+            "Discount Code": discount_code,
+            "Discount Amount": f"{discount_amount:.2f}",
+            "discount_ratio": f"{discount_ratio:.4f}",
+            "Shipping Method": random.choice(["Standard", "Express"]),
+            "Created at": created_at.strftime("%Y-%m-%d %H:%M:%S -0400"),
+            "Lineitem quantity": str(quantity),
+            "Lineitem name": product["name"],
+            "Lineitem price": f"{item_price:.2f}",
+            "Lineitem compare at price": "",
+            "Lineitem sku": product["sku"],
+            "Lineitem requires shipping": "TRUE",
+            "Lineitem taxable": "TRUE",
+            "Lineitem fulfillment status": "fulfilled",
+            "Billing Name": customer["name"],
+            "Billing Street": customer["address"]["street"],
+            "Billing Address1": customer["address"]["street"],
+            "Billing Address2": "",
+            "Billing Company": "",
+            "Billing City": customer["address"]["city"],
+            "Billing Zip": customer["address"]["zip"],
+            "Billing Province": customer["address"]["province"],
+            "Billing Country": customer["address"]["country"],
+            "Billing Phone": customer["phone"],
+            "Shipping Name": customer["name"],
+            "Shipping Street": customer["address"]["street"],
+            "Shipping Address1": customer["address"]["street"],
+            "Shipping Address2": "",
+            "Shipping Company": "",
+            "Shipping City": customer["address"]["city"],
+            "Shipping Zip": customer["address"]["zip"],
+            "Shipping Province": customer["address"]["province"],
+            "Shipping Country": customer["address"]["country"],
+            "Shipping Phone": customer["phone"],
+            "Notes": "",
+            "Note Attributes": "",
+            "Cancelled at": "",
+            "Payment Method": "Credit Card",
+            "Payment Reference": generate_random_id(),
+            "Refunded Amount": "",
+            "Vendor": product["vendor"],
+            "Outstanding Balance": "",
+            "Employee": "",
+            "Location": "",
+            "Device ID": "",
+            "Id": "",
+            "Tags": "",
+            "Risk Level": "",
+            "Source": "",
+            "Lineitem discount": "0.00",
+            "Tax 1 Name": "",
+            "Tax 1 Value": "",
+            "Tax 2 Name": "",
+            "Tax 2 Value": "",
+            "Tax 3 Name": "",
+            "Tax 3 Value": "",
+            "Tax 4 Name": "",
+            "Tax 4 Value": "",
+            "Tax 5 Name": "",
+            "Tax 5 Value": "",
+            "Phone": customer["phone"],
+            "Receipt Number": "",
+            "Duties": "",
+            "Billing Province Name": "",
+            "Shipping Province Name": "",
+            "Payment ID": "",
+            "Payment Terms Name": "",
+            "Next Payment Due At": "",
+            "Payment References": "",
+            "is_weekend": str(date.weekday() >= 5),
+            "is_holiday": str(is_holiday),
+            "stockout": "False",
+            "Lineitem grams": "500",
+            "Lineitem variant id": "",
+            "Processed at": created_at.strftime("%Y-%m-%d %H:%M:%S -0400"),
+            "Customer": customer["name"],
+            "Lineitem variant": "",
+            "Updated at": created_at.strftime("%Y-%m-%d %H:%M:%S -0400"),
+            "Lineitem product id": "",
+        }
         
         line_items.append(line_item)
     
@@ -1086,13 +1012,16 @@ def generate_synthetic_data():
     print("🚀 Starting synthetic toy sales data generation...")
     print(f"📊 Configuration:")
     print(f"   - Number of SKUs (from config): {NUMBER_OF_SKUS}")
-    print(f"   - Months to generate: {NUMBER_OF_MONTHS}")
+    print(f"   - Days to generate (from config): {NUMBER_OF_DAYS_TO_GENERATE}") # Added for clarity
+    # print(f"   - Months to generate: {NUMBER_OF_MONTHS}") # Commented out or remove if NUMBER_OF_DAYS_TO_GENERATE is primary
     print(f"   - Average monthly growth: {AVERAGE_MONTHLY_GROWTH*100:.1f}%")
     print(f"   - Weekend boost factor: {WEEKEND_BOOST_FACTOR}x")
     print(f"   - Base daily orders: {BASE_DAILY_ORDERS}")
     print(f"   - Total toy products generated: {len(TOY_PRODUCTS)}")
     end_date = datetime.now() - timedelta(days=1)
-    start_date = end_date - timedelta(days=30 * NUMBER_OF_MONTHS)
+    # Calculate start_date based on NUMBER_OF_DAYS_TO_GENERATE
+    start_date = end_date - timedelta(days=NUMBER_OF_DAYS_TO_GENERATE)
+    # start_date = end_date - timedelta(days=30 * NUMBER_OF_MONTHS) # Old calculation
     print(f"📅 Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
     print(f"📊 Generating data for {(end_date - start_date).days} days")
     all_orders = []
@@ -1150,10 +1079,12 @@ def generate_synthetic_data():
             "Outstanding Balance", "Employee", "Location", "Device ID", "Id", "Tags", "Risk Level",
             "Source", "Lineitem discount", "Tax 1 Name", "Tax 1 Value", "Tax 2 Name", "Tax 2 Value",
             "Tax 3 Name", "Tax 3 Value", "Tax 4 Name", "Tax 4 Value", "Tax 5 Name", "Tax 5 Value",
-            "Phone", "Receipt Number", "Duties", "Billing Province Name", "Shipping Province Name",
-            "Payment ID", "Payment Terms Name", "Next Payment Due At", "Payment References", 
-            "is_weekend", "is_holiday", "stockout", "Lineitem grams", "Lineitem variant id", 
-            "Processed at", "Customer", "Lineitem variant", "Updated at", "Lineitem product id"
+            # Adding missing fields from the error message
+            "Customer", "Receipt Number", "Billing Province Name", "Lineitem variant id", 
+            "is_holiday", "Updated at", "Payment References", "Shipping Province Name", 
+            "Lineitem variant", "Processed at", "Duties", "Payment ID", "stockout", 
+            "Payment Terms Name", "Phone", "is_weekend", "Next Payment Due At", 
+            "Lineitem product id", "Lineitem grams"
         ]
 
         with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:

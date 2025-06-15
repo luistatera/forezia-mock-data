@@ -5,7 +5,8 @@
         "average_monthly_growth": 0.08,
         "weekend_boost_factor": 1.8,
         "base_daily_orders": 15,
-        "seasonal_factor": 0.3
+        "seasonal_factor": 0.3,
+        "random_noise_factor": 0.1
     },
     "prophet_optimization": {
         "min_sales_days_per_sku": 30,
@@ -31,8 +32,8 @@
         "min_quantity": 0,
         "max_quantity": 8,
         "stock_out_probability": 0.05,
-        "bulk_order_probability": 0.20,
+        "bulk_order_probability": 0.2,
         "low_inventory_probability": 0.15,
-        "high_demand_spike_probability": 0.10
+        "high_demand_spike_probability": 0.1
     }
 }

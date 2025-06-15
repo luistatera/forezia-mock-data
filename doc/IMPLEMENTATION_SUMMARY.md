@@ -121,3 +121,56 @@ The mock data generator now produces Prophet-optimized discount data with:
 - **Perfect for time series forecasting**
 
 **Next Steps**: Use the generated `toy_sales_synthetic_*.csv` files with Prophet models, utilizing `discount_ratio` as a regressor for accurate sales forecasting and promotional impact analysis.
+
+# ✅ Random Noise Factor Enhancement
+
+## 🎯 New Feature: Controlled Noise for Realistic Demand Fluctuation
+
+### 🔧 Implementation Details
+
+#### 1. **Configuration Parameter Added**
+- ✅ Added `random_noise_factor` to `config.json` under `data_generation`
+- ✅ Default value: `0.1` (±10% Gaussian noise)
+- ✅ Configurable range: `0.05` to `0.2` for realistic variation
+
+#### 2. **Noise Application Points**
+- ✅ **Daily Order Calculations**: Applied to base demand after all multipliers
+- ✅ **Quantity Generation**: Applied to individual product quantities
+- ✅ **Consistent Usage**: Same noise factor used across all calculations
+
+#### 3. **Technical Implementation**
+```python
+# Configuration loading
+RANDOM_NOISE_FACTOR = CONFIG.get('data_generation', {}).get('random_noise_factor', 0.1)
+
+# Applied in calculate_daily_orders()
+noise = random.gauss(0, RANDOM_NOISE_FACTOR * max(base_orders, 1))
+orders = int(max(5, min(40, base_orders + noise)))
+
+# Applied in generate_varied_quantity()
+noisy_qty = int(round(base_qty + random.gauss(0, RANDOM_NOISE_FACTOR * max(mean_qty, 1))))
+```
+
+#### 4. **Realistic Noise Characteristics**
+- ✅ **Gaussian Distribution**: More natural than uniform noise
+- ✅ **Proportional Scaling**: Noise scales with demand magnitude
+- ✅ **Bounded Output**: Prevents unrealistic extreme values
+- ✅ **Configurable Intensity**: Adjustable for different business scenarios
+
+#### 5. **Usage Examples**
+```json
+{
+  "data_generation": {
+    "random_noise_factor": 0.05,  // ±5% - Stable demand (grocery, utilities)
+    "random_noise_factor": 0.1,   // ±10% - Normal retail (recommended)
+    "random_noise_factor": 0.15,  // ±15% - Seasonal/fashion retail
+    "random_noise_factor": 0.2    // ±20% - Highly volatile (trending products)
+  }
+}
+```
+
+#### 6. **Benefits for ML Model Training**
+- 🎯 **Realistic Variance**: Simulates real-world demand unpredictability
+- 🎯 **Model Robustness**: Helps Prophet handle noisy time series
+- 🎯 **Better Generalization**: Prevents overfitting to perfect patterns
+- 🎯 **Controlled Simulation**: Predictable noise characteristics for testing
