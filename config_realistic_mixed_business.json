@@ -1,0 +1,82 @@
+{
+    "data_generation": {
+        "number_of_skus": 50,
+        "number_of_months": 12,
+        "average_monthly_growth": 0.08,
+        "weekend_boost_factor": 1.8,
+        "base_daily_orders": 15,
+        "seasonal_factor": 0.3
+    },
+    "product_categories": {
+        "stable_essentials": {
+            "description": "Basic toys, educational items, classic games",
+            "percentage_of_skus": 0.30,
+            "random_noise_factor": 0.05,
+            "seasonal_factor": 0.1,
+            "examples": ["LEGO Classic", "Crayola Art Kit", "Monopoly", "UNO"]
+        },
+        "normal_retail": {
+            "description": "Regular toy store items, moderate seasonality",
+            "percentage_of_skus": 0.40,
+            "random_noise_factor": 0.1,
+            "seasonal_factor": 0.3,
+            "examples": ["Action figures", "Dolls", "Board games", "Building sets"]
+        },
+        "seasonal_trending": {
+            "description": "Fashion toys, seasonal items, trend-driven",
+            "percentage_of_skus": 0.20,
+            "random_noise_factor": 0.15,
+            "seasonal_factor": 0.5,
+            "examples": ["Holiday themed toys", "Fashion dolls", "Movie tie-ins"]
+        },
+        "volatile_viral": {
+            "description": "Viral products, social media driven, unpredictable",
+            "percentage_of_skus": 0.10,
+            "random_noise_factor": 0.25,
+            "seasonal_factor": 0.2,
+            "examples": ["Fidget toys", "TikTok viral items", "Limited editions"]
+        }
+    },
+    "prophet_optimization": {
+        "min_sales_days_per_sku": 30,
+        "min_total_units_per_sku": 50,
+        "ensure_sku_distribution": true,
+        "sku_popularity_weights": true
+    },
+    "discounts": {
+        "enable_discounts": true,
+        "discount_ratio_probabilities": {
+            "0.00": 0.70,
+            "0.10": 0.10,
+            "0.15": 0.08,
+            "0.20": 0.06,
+            "0.25": 0.03,
+            "0.30": 0.02,
+            "0.40": 0.005,
+            "0.50": 0.005
+        },
+        "category_specific_discounts": {
+            "stable_essentials": {
+                "discount_probability": 0.15,
+                "max_discount": 0.20
+            },
+            "seasonal_trending": {
+                "discount_probability": 0.40,
+                "max_discount": 0.50
+            },
+            "volatile_viral": {
+                "discount_probability": 0.60,
+                "max_discount": 0.70
+            }
+        }
+    },
+    "quantity_settings": {
+        "enable_quantity_variety": true,
+        "min_quantity": 0,
+        "max_quantity": 8,
+        "stock_out_probability": 0.05,
+        "bulk_order_probability": 0.20,
+        "low_inventory_probability": 0.15,
+        "high_demand_spike_probability": 0.10
+    }
+}

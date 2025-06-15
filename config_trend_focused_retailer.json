@@ -1,0 +1,87 @@
+{
+    "data_generation": {
+        "number_of_skus": 40,
+        "number_of_months": 12,
+        "average_monthly_growth": 0.12,
+        "weekend_boost_factor": 2.2,
+        "base_daily_orders": 18,
+        "seasonal_factor": 0.4
+    },
+    "product_categories": {
+        "stable_essentials": {
+            "description": "Core items that always sell",
+            "percentage_of_skus": 0.15,
+            "random_noise_factor": 0.06,
+            "seasonal_factor": 0.12,
+            "examples": ["Basic LEGO", "Crayons", "Puzzles"]
+        },
+        "normal_retail": {
+            "description": "Standard retail mix",
+            "percentage_of_skus": 0.35,
+            "random_noise_factor": 0.11,
+            "seasonal_factor": 0.35,
+            "examples": ["Action figures", "Dolls", "Board games"]
+        },
+        "seasonal_trending": {
+            "description": "Fashion-forward, trend-sensitive items",
+            "percentage_of_skus": 0.30,
+            "random_noise_factor": 0.18,
+            "seasonal_factor": 0.6,
+            "examples": ["Fashion dolls", "Movie tie-ins", "Holiday specials"]
+        },
+        "volatile_viral": {
+            "description": "Viral hits, social media driven",
+            "percentage_of_skus": 0.20,
+            "random_noise_factor": 0.30,
+            "seasonal_factor": 0.25,
+            "examples": ["TikTok toys", "Collectibles", "Limited editions"]
+        }
+    },
+    "prophet_optimization": {
+        "min_sales_days_per_sku": 30,
+        "min_total_units_per_sku": 50,
+        "ensure_sku_distribution": true,
+        "sku_popularity_weights": true
+    },
+    "discounts": {
+        "enable_discounts": true,
+        "discount_ratio_probabilities": {
+            "0.00": 0.60,
+            "0.10": 0.12,
+            "0.15": 0.08,
+            "0.20": 0.08,
+            "0.25": 0.05,
+            "0.30": 0.03,
+            "0.40": 0.02,
+            "0.50": 0.015,
+            "0.60": 0.005
+        },
+        "category_specific_discounts": {
+            "stable_essentials": {
+                "discount_probability": 0.20,
+                "max_discount": 0.25
+            },
+            "normal_retail": {
+                "discount_probability": 0.35,
+                "max_discount": 0.40
+            },
+            "seasonal_trending": {
+                "discount_probability": 0.50,
+                "max_discount": 0.60
+            },
+            "volatile_viral": {
+                "discount_probability": 0.70,
+                "max_discount": 0.80
+            }
+        }
+    },
+    "quantity_settings": {
+        "enable_quantity_variety": true,
+        "min_quantity": 0,
+        "max_quantity": 10,
+        "stock_out_probability": 0.08,
+        "bulk_order_probability": 0.25,
+        "low_inventory_probability": 0.18,
+        "high_demand_spike_probability": 0.15
+    }
+}

@@ -44,9 +44,48 @@ forezia-mock-data/
 └── top_sku_daily_sales.csv        # Top SKU daily sales data
 ```
 
-## 🚀 Quick Start
+## 🏪 Business Model Configurations
 
-### Prerequisites
+The system now supports **realistic mixed business scenarios** instead of single uniform patterns. Real businesses have diverse product portfolios with different demand characteristics.
+
+### Default Configuration: Realistic Mixed Business
+- **30% Stable Essentials**: Basic toys, educational items (±5% noise, low seasonality)
+- **40% Normal Retail**: Standard toy store items (±10% noise, moderate seasonality)  
+- **20% Seasonal Trending**: Fashion toys, movie tie-ins (±15% noise, high seasonality)
+- **10% Volatile Viral**: Viral products, collectibles (±25% noise, trend-driven)
+
+### Example Configurations
+
+#### Conservative Family Store
+```bash
+cp config_conservative_family_store.json config.json
+python generate_synthetic_orders.py
+```
+- 50% stable essentials, minimal viral products
+- Lower noise levels, family-friendly focus
+
+#### Trend-Focused Retailer  
+```bash
+cp config_trend_focused_retailer.json config.json
+python generate_synthetic_orders.py
+```
+- 30% seasonal trending, 20% viral products
+- Higher volatility, aggressive discounting
+
+#### Balanced Mixed Business (Default)
+```bash
+cp config_realistic_mixed_business.json config.json
+python generate_synthetic_orders.py
+```
+- Realistic mix representing typical toy retailers
+- Category-specific noise and seasonal factors
+
+### Legacy Single-Scenario Configs (Still Supported)
+The old single-scenario configs are still available for specific testing:
+- `config_stable_business.json` - All products behave like essentials
+- `config_normal_retail.json` - All products behave like standard retail
+- `config_seasonal_fashion.json` - All products behave seasonally
+- `config_volatile_trending.json` - All products behave like viral items
 
 ```bash
 # Required Python packages

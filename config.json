@@ -1,0 +1,82 @@
+{
+    "data_generation": {
+        "number_of_skus": 3,
+        "number_of_months": 5,
+        "average_monthly_growth": 0.06,
+        "weekend_boost_factor": 1.5,
+        "base_daily_orders": 20,
+        "seasonal_factor": 0.2
+    },
+    "product_categories": {
+        "stable_essentials": {
+            "description": "Educational toys, basic games, essential items",
+            "percentage_of_skus": 0.50,
+            "random_noise_factor": 0.03,
+            "seasonal_factor": 0.08,
+            "examples": ["Educational toys", "Basic board games", "Art supplies"]
+        },
+        "normal_retail": {
+            "description": "Family-friendly toys, moderate seasonality",
+            "percentage_of_skus": 0.40,
+            "random_noise_factor": 0.08,
+            "seasonal_factor": 0.25,
+            "examples": ["Family board games", "Building sets", "Classic toys"]
+        },
+        "seasonal_trending": {
+            "description": "Holiday items, limited seasonal products",
+            "percentage_of_skus": 0.08,
+            "random_noise_factor": 0.12,
+            "seasonal_factor": 0.4,
+            "examples": ["Holiday themed items", "Back-to-school supplies"]
+        },
+        "volatile_viral": {
+            "description": "Very few trending items, conservative approach",
+            "percentage_of_skus": 0.02,
+            "random_noise_factor": 0.18,
+            "seasonal_factor": 0.15,
+            "examples": ["Occasional trending toy"]
+        }
+    },
+    "prophet_optimization": {
+        "min_sales_days_per_sku": 25,
+        "min_total_units_per_sku": 40,
+        "ensure_sku_distribution": true,
+        "sku_popularity_weights": true
+    },
+    "discounts": {
+        "enable_discounts": true,
+        "discount_ratio_probabilities": {
+            "0.00": 0.80,
+            "0.10": 0.12,
+            "0.15": 0.05,
+            "0.20": 0.03
+        },
+        "category_specific_discounts": {
+            "stable_essentials": {
+                "discount_probability": 0.12,
+                "max_discount": 0.15
+            },
+            "normal_retail": {
+                "discount_probability": 0.18,
+                "max_discount": 0.25
+            },
+            "seasonal_trending": {
+                "discount_probability": 0.30,
+                "max_discount": 0.35
+            },
+            "volatile_viral": {
+                "discount_probability": 0.40,
+                "max_discount": 0.40
+            }
+        }
+    },
+    "quantity_settings": {
+        "enable_quantity_variety": true,
+        "min_quantity": 0,
+        "max_quantity": 6,
+        "stock_out_probability": 0.03,
+        "bulk_order_probability": 0.15,
+        "low_inventory_probability": 0.12,
+        "high_demand_spike_probability": 0.08
+    }
+}
