@@ -5,19 +5,40 @@ Generates realistic sales data with weekend spikes and monthly growth patterns
 """
 
 import csv
+import json
 import random
 import string
 from datetime import datetime, timedelta
 from typing import List, Dict, Tuple
 import math
 import holidays
+import os
 
-# Configuration Variables
-NUMBER_OF_MONTHS = 12  # Generate data for last 12 months
-AVERAGE_MONTHLY_GROWTH = 0.08  # 8% monthly growth rate
-WEEKEND_BOOST_FACTOR = 1.8  # Sales increase 80% on weekends
-BASE_DAILY_ORDERS = 15  # Base number of orders per day (will grow monthly)
-SEASONAL_FACTOR = 0.3  # How much seasonal variation affects sales
+def load_config():
+    """Load configuration from config.json file."""
+    config_path = os.path.join(os.path.dirname(__file__), 'config.json')
+    try:
+        with open(config_path, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"⚠️  Config file not found at {config_path}. Using default values.")
+        return {}
+    except json.JSONDecodeError as e:
+        print(f"⚠️  Error parsing config file: {e}. Using default values.")
+        return {}
+
+# Load configuration
+CONFIG = load_config()
+
+# Configuration Variables - loaded from config.json or using defaults
+NUMBER_OF_MONTHS = CONFIG.get('data_generation', {}).get('number_of_months', 12)
+AVERAGE_MONTHLY_GROWTH = CONFIG.get('data_generation', {}).get('average_monthly_growth', 0.08)
+WEEKEND_BOOST_FACTOR = CONFIG.get('data_generation', {}).get('weekend_boost_factor', 1.8)
+BASE_DAILY_ORDERS = CONFIG.get('data_generation', {}).get('base_daily_orders', 15)
+SEASONAL_FACTOR = CONFIG.get('data_generation', {}).get('seasonal_factor', 0.3)
+
+# Number of SKUs to generate (loaded from config)
+NUMBER_OF_SKUS = CONFIG.get('data_generation', {}).get('number_of_skus', 50)
 
 # Enhanced Prophet Learning Patterns
 ENABLE_STRONG_PATTERNS = True  # Enable stronger patterns for Prophet to learn
@@ -25,35 +46,42 @@ AUTOCORRELATION_FACTOR = 0.3  # How much previous days affect current day
 CYCLICAL_PATTERNS = True  # Enable cyclical demand patterns
 TREND_STRENGTH = 0.4  # How strong trending signals should be
 
-# Prophet Model Compatibility Settings
-MIN_SALES_DAYS_PER_SKU = 30  # Minimum days a SKU must be sold to avoid Prophet crashes
-MIN_TOTAL_UNITS_PER_SKU = 50  # Minimum total units sold per SKU across all time
-ENSURE_SKU_DISTRIBUTION = True  # Ensure all SKUs have adequate sales distribution
-SKU_POPULARITY_WEIGHTS = True  # Use realistic popularity weights for SKUs
+# Prophet Model Compatibility Settings - loaded from config.json or using defaults
+MIN_SALES_DAYS_PER_SKU = CONFIG.get('prophet_optimization', {}).get('min_sales_days_per_sku', 30)
+MIN_TOTAL_UNITS_PER_SKU = CONFIG.get('prophet_optimization', {}).get('min_total_units_per_sku', 50)
+ENSURE_SKU_DISTRIBUTION = CONFIG.get('prophet_optimization', {}).get('ensure_sku_distribution', True)
+SKU_POPULARITY_WEIGHTS = CONFIG.get('prophet_optimization', {}).get('sku_popularity_weights', True)
 
-# New Discount Configuration for Prophet Training Data
-ENABLE_DISCOUNTS = True  # Enable discount functionality
+# New Discount Configuration for Prophet Training Data - loaded from config.json
+ENABLE_DISCOUNTS = CONFIG.get('discounts', {}).get('enable_discounts', True)
 
 # Discount ratio configuration - simplified for Prophet model
-DISCOUNT_RATIO_PROBABILITIES = {
-    0.00: 0.75,   # 75% of orders have no discount (most common)
-    0.10: 0.08,   # 8% have 10% discount (light promotions)
-    0.15: 0.06,   # 6% have 15% discount
-    0.20: 0.05,   # 5% have 20% discount
-    0.25: 0.03,   # 3% have 25% discount
-    0.30: 0.02,   # 2% have 30% discount (seasonal sales)
-    0.40: 0.005,  # 0.5% have 40% discount (rare big promotions)
-    0.50: 0.005,  # 0.5% have 50% discount (very rare deep promotions)
-}
+config_discount_probs = CONFIG.get('discounts', {}).get('discount_ratio_probabilities', {})
+DISCOUNT_RATIO_PROBABILITIES = {}
+for ratio_str, prob in config_discount_probs.items():
+    DISCOUNT_RATIO_PROBABILITIES[float(ratio_str)] = prob
 
-# Quantity Variety Settings for Better ML Performance
-ENABLE_QUANTITY_VARIETY = True  # Enable varied quantity patterns
-MIN_QUANTITY = 0  # Minimum quantity (0 = out of stock days)
-MAX_QUANTITY = 8  # Maximum quantity per line item
-STOCK_OUT_PROBABILITY = 0.05  # 5% chance of stock-out (0 quantity) - reduced for Prophet
-BULK_ORDER_PROBABILITY = 0.20  # 20% chance of bulk orders (4+ quantity) - increased variety
-LOW_INVENTORY_PROBABILITY = 0.15  # 15% chance of low inventory (1-2 units)
-HIGH_DEMAND_SPIKE_PROBABILITY = 0.10  # 10% chance of demand spikes
+# Default discount probabilities if not in config
+if not DISCOUNT_RATIO_PROBABILITIES:
+    DISCOUNT_RATIO_PROBABILITIES = {
+        0.00: 0.75,   # 75% of orders have no discount (most common)
+        0.10: 0.08,   # 8% have 10% discount (light promotions)
+        0.15: 0.06,   # 6% have 15% discount
+        0.20: 0.05,   # 5% have 20% discount
+        0.25: 0.03,   # 3% have 25% discount
+        0.30: 0.02,   # 2% have 30% discount (seasonal sales)
+        0.40: 0.005,  # 0.5% have 40% discount (rare big promotions)
+        0.50: 0.005,  # 0.5% have 50% discount (very rare deep promotions)
+    }
+
+# Quantity Variety Settings for Better ML Performance - loaded from config.json
+ENABLE_QUANTITY_VARIETY = CONFIG.get('quantity_settings', {}).get('enable_quantity_variety', True)
+MIN_QUANTITY = CONFIG.get('quantity_settings', {}).get('min_quantity', 0)
+MAX_QUANTITY = CONFIG.get('quantity_settings', {}).get('max_quantity', 8)
+STOCK_OUT_PROBABILITY = CONFIG.get('quantity_settings', {}).get('stock_out_probability', 0.05)
+BULK_ORDER_PROBABILITY = CONFIG.get('quantity_settings', {}).get('bulk_order_probability', 0.20)
+LOW_INVENTORY_PROBABILITY = CONFIG.get('quantity_settings', {}).get('low_inventory_probability', 0.15)
+HIGH_DEMAND_SPIKE_PROBABILITY = CONFIG.get('quantity_settings', {}).get('high_demand_spike_probability', 0.10)
 
 # Quantity patterns based on product popularity and demand
 QUANTITY_PATTERNS = {
@@ -63,59 +91,97 @@ QUANTITY_PATTERNS = {
     'variable': {'weights': [0.10, 0.18, 0.22, 0.20, 0.15, 0.10, 0.05], 'values': [0, 1, 2, 3, 4, 5, 6]}
 }
 
-# Toy Products Database (50 products) with popularity weights and trend patterns
-TOY_PRODUCTS = [
-    {"name": "LEGO Classic Creative Bricks", "price": 29.99, "sku": "TOY-LEGO-001", "vendor": "LEGO Group", "popularity": 0.95, "trend": "stable"},
-    {"name": "Barbie Dreamhouse Playset", "price": 199.99, "sku": "TOY-BARB-001", "vendor": "Mattel", "popularity": 0.85, "trend": "growing"},
-    {"name": "Hot Wheels Track Builder", "price": 34.99, "sku": "TOY-HW-001", "vendor": "Mattel", "popularity": 0.90, "trend": "stable"},
-    {"name": "Monopoly Board Game", "price": 24.99, "sku": "TOY-MONO-001", "vendor": "Hasbro", "popularity": 0.88, "trend": "stable"},
-    {"name": "Nerf Elite Blaster", "price": 19.99, "sku": "TOY-NERF-001", "vendor": "Hasbro", "popularity": 0.92, "trend": "growing"},
-    {"name": "Play-Doh Creative Set", "price": 15.99, "sku": "TOY-PD-001", "vendor": "Hasbro", "popularity": 0.89, "trend": "stable"},
-    {"name": "Fisher-Price Rock-a-Stack", "price": 8.99, "sku": "TOY-FP-001", "vendor": "Fisher-Price", "popularity": 0.75, "trend": "declining"},
-    {"name": "Crayola Art Supplies Kit", "price": 22.99, "sku": "TOY-CRAY-001", "vendor": "Crayola", "popularity": 0.82, "trend": "stable"},
-    {"name": "Rubik's Cube Classic", "price": 12.99, "sku": "TOY-RUB-001", "vendor": "Spin Master", "popularity": 0.70, "trend": "volatile"},
-    {"name": "Transformers Action Figure", "price": 29.99, "sku": "TOY-TRANS-001", "vendor": "Hasbro", "popularity": 0.78, "trend": "stable"},
-    {"name": "Pokémon Trading Cards", "price": 4.99, "sku": "TOY-POKE-001", "vendor": "Pokémon Company", "popularity": 0.95, "trend": "growing"},
-    {"name": "My Little Pony Figure", "price": 16.99, "sku": "TOY-MLP-001", "vendor": "Hasbro", "popularity": 0.72, "trend": "declining"},
-    {"name": "Thomas & Friends Train Set", "price": 39.99, "sku": "TOY-THOMAS-001", "vendor": "Mattel", "popularity": 0.68, "trend": "declining"},
-    {"name": "Minecraft Building Set", "price": 44.99, "sku": "TOY-MC-001", "vendor": "LEGO Group", "popularity": 0.87, "trend": "growing"},
-    {"name": "Scrabble Junior", "price": 19.99, "sku": "TOY-SCRAB-001", "vendor": "Hasbro", "popularity": 0.60, "trend": "stable"},
-    {"name": "UNO Card Game", "price": 7.99, "sku": "TOY-UNO-001", "vendor": "Mattel", "popularity": 0.85, "trend": "stable"},
-    {"name": "Jenga Classic Game", "price": 9.99, "sku": "TOY-JENGA-001", "vendor": "Hasbro", "popularity": 0.80, "trend": "stable"},
-    {"name": "Peppa Pig Playhouse", "price": 54.99, "sku": "TOY-PEPPA-001", "vendor": "Character Options", "popularity": 0.65, "trend": "declining"},
-    {"name": "Disney Princess Doll", "price": 24.99, "sku": "TOY-DISNEY-001", "vendor": "Mattel", "popularity": 0.83, "trend": "stable"},
-    {"name": "Spider-Man Action Figure", "price": 18.99, "sku": "TOY-SPIDER-001", "vendor": "Hasbro", "popularity": 0.86, "trend": "growing"},
-    {"name": "Frozen Elsa Dress-Up", "price": 32.99, "sku": "TOY-FROZEN-001", "vendor": "Disney", "popularity": 0.81, "trend": "declining"},
-    {"name": "Cars Lightning McQueen", "price": 21.99, "sku": "TOY-CARS-001", "vendor": "Mattel", "popularity": 0.77, "trend": "stable"},
-    {"name": "Paw Patrol Rescue Vehicle", "price": 26.99, "sku": "TOY-PAW-001", "vendor": "Spin Master", "popularity": 0.84, "trend": "growing"},
-    {"name": "Baby Alive Interactive Doll", "price": 49.99, "sku": "TOY-BABY-001", "vendor": "Hasbro", "popularity": 0.69, "trend": "stable"},
-    {"name": "Magic 8 Ball", "price": 11.99, "sku": "TOY-MAGIC-001", "vendor": "Mattel", "popularity": 0.55, "trend": "stable"},
-    {"name": "Slinky Original", "price": 5.99, "sku": "TOY-SLINK-001", "vendor": "Poof Slinky", "popularity": 0.58, "trend": "declining"},
-    {"name": "Connect 4 Game", "price": 14.99, "sku": "TOY-CON4-001", "vendor": "Hasbro", "popularity": 0.74, "trend": "stable"},
-    {"name": "Operation Board Game", "price": 16.99, "sku": "TOY-OP-001", "vendor": "Hasbro", "popularity": 0.67, "trend": "stable"},
-    {"name": "Risk Strategy Game", "price": 39.99, "sku": "TOY-RISK-001", "vendor": "Hasbro", "popularity": 0.52, "trend": "stable"},
-    {"name": "Clue Mystery Game", "price": 19.99, "sku": "TOY-CLUE-001", "vendor": "Hasbro", "popularity": 0.63, "trend": "stable"},
-    {"name": "Yahtzee Dice Game", "price": 8.99, "sku": "TOY-YAH-001", "vendor": "Hasbro", "popularity": 0.71, "trend": "stable"},
-    {"name": "Twister Floor Game", "price": 12.99, "sku": "TOY-TWIST-001", "vendor": "Hasbro", "popularity": 0.76, "trend": "stable"},
-    {"name": "Sorry! Board Game", "price": 17.99, "sku": "TOY-SORRY-001", "vendor": "Hasbro", "popularity": 0.59, "trend": "declining"},
-    {"name": "Trouble Pop-O-Matic", "price": 13.99, "sku": "TOY-TROUB-001", "vendor": "Hasbro", "popularity": 0.61, "trend": "stable"},
-    {"name": "Guess Who? Game", "price": 11.99, "sku": "TOY-GUESS-001", "vendor": "Hasbro", "popularity": 0.66, "trend": "stable"},
-    {"name": "Battleship Strategy Game", "price": 18.99, "sku": "TOY-BATTLE-001", "vendor": "Hasbro", "popularity": 0.64, "trend": "stable"},
-    {"name": "Candy Land Adventure", "price": 9.99, "sku": "TOY-CANDY-001", "vendor": "Hasbro", "popularity": 0.79, "trend": "stable"},
-    {"name": "Chutes and Ladders", "price": 8.99, "sku": "TOY-CHUTES-001", "vendor": "Hasbro", "popularity": 0.73, "trend": "stable"},
-    {"name": "LEGO Friends Heartlake City", "price": 89.99, "sku": "TOY-LEGO-002", "vendor": "LEGO Group", "popularity": 0.75, "trend": "growing"},
-    {"name": "LEGO Technic Race Car", "price": 69.99, "sku": "TOY-LEGO-003", "vendor": "LEGO Group", "popularity": 0.68, "trend": "growing"},
-    {"name": "K'NEX Building Set", "price": 24.99, "sku": "TOY-KNEX-001", "vendor": "K'NEX", "popularity": 0.48, "trend": "declining"},
-    {"name": "Lincoln Logs Cabin", "price": 29.99, "sku": "TOY-LINC-001", "vendor": "K'NEX", "popularity": 0.54, "trend": "declining"},
-    {"name": "Tinker Toys Classic Set", "price": 19.99, "sku": "TOY-TINK-001", "vendor": "K'NEX", "popularity": 0.51, "trend": "declining"},
-    {"name": "Magna-Tiles Clear Colors", "price": 49.99, "sku": "TOY-MAGNA-001", "vendor": "Magna-Tiles", "popularity": 0.70, "trend": "growing"},
-    {"name": "Playmobil Pirate Ship", "price": 79.99, "sku": "TOY-PLAY-001", "vendor": "Playmobil", "popularity": 0.56, "trend": "stable"},
-    {"name": "Calico Critters Family", "price": 34.99, "sku": "TOY-CALI-001", "vendor": "Epoch Everlasting Play", "popularity": 0.62, "trend": "stable"},
-    {"name": "Shopkins Mini Figures", "price": 6.99, "sku": "TOY-SHOP-001", "vendor": "Moose Toys", "popularity": 0.73, "trend": "declining"},
-    {"name": "LOL Surprise Dolls", "price": 9.99, "sku": "TOY-LOL-001", "vendor": "MGA Entertainment", "popularity": 0.88, "trend": "volatile"},
-    {"name": "Hatchimals Surprise Egg", "price": 59.99, "sku": "TOY-HATCH-001", "vendor": "Spin Master", "popularity": 0.67, "trend": "declining"},
-    {"name": "Fidget Spinner Classic", "price": 3.99, "sku": "TOY-FIDG-001", "vendor": "Various", "popularity": 0.45, "trend": "declining"}
-]
+# Toy Products Database - dynamically generated based on config
+def generate_toy_products(num_skus):
+    """Generate toy products list based on the configured number of SKUs."""
+    
+    # Base product templates to use for generation
+    base_products = [
+        {"name": "LEGO Classic Creative Bricks", "price": 29.99, "sku": "TOY-LEGO-001", "vendor": "LEGO Group", "popularity": 0.95, "trend": "stable"},
+        {"name": "Barbie Dreamhouse Playset", "price": 199.99, "sku": "TOY-BARB-001", "vendor": "Mattel", "popularity": 0.85, "trend": "growing"},
+        {"name": "Hot Wheels Track Builder", "price": 34.99, "sku": "TOY-HW-001", "vendor": "Mattel", "popularity": 0.90, "trend": "stable"},
+        {"name": "Monopoly Board Game", "price": 24.99, "sku": "TOY-MONO-001", "vendor": "Hasbro", "popularity": 0.88, "trend": "stable"},
+        {"name": "Nerf Elite Blaster", "price": 19.99, "sku": "TOY-NERF-001", "vendor": "Hasbro", "popularity": 0.92, "trend": "growing"},
+        {"name": "Play-Doh Creative Set", "price": 15.99, "sku": "TOY-PD-001", "vendor": "Hasbro", "popularity": 0.89, "trend": "stable"},
+        {"name": "Fisher-Price Rock-a-Stack", "price": 8.99, "sku": "TOY-FP-001", "vendor": "Fisher-Price", "popularity": 0.75, "trend": "declining"},
+        {"name": "Crayola Art Supplies Kit", "price": 22.99, "sku": "TOY-CRAY-001", "vendor": "Crayola", "popularity": 0.82, "trend": "stable"},
+        {"name": "Rubik's Cube Classic", "price": 12.99, "sku": "TOY-RUB-001", "vendor": "Spin Master", "popularity": 0.70, "trend": "volatile"},
+        {"name": "Transformers Action Figure", "price": 29.99, "sku": "TOY-TRANS-001", "vendor": "Hasbro", "popularity": 0.78, "trend": "stable"},
+        {"name": "Pokémon Trading Cards", "price": 4.99, "sku": "TOY-POKE-001", "vendor": "Pokémon Company", "popularity": 0.95, "trend": "growing"},
+        {"name": "My Little Pony Figure", "price": 16.99, "sku": "TOY-MLP-001", "vendor": "Hasbro", "popularity": 0.72, "trend": "declining"},
+        {"name": "Thomas & Friends Train Set", "price": 39.99, "sku": "TOY-THOMAS-001", "vendor": "Mattel", "popularity": 0.68, "trend": "declining"},
+        {"name": "Minecraft Building Set", "price": 44.99, "sku": "TOY-MC-001", "vendor": "LEGO Group", "popularity": 0.87, "trend": "growing"},
+        {"name": "Scrabble Junior", "price": 19.99, "sku": "TOY-SCRAB-001", "vendor": "Hasbro", "popularity": 0.60, "trend": "stable"},
+        {"name": "UNO Card Game", "price": 7.99, "sku": "TOY-UNO-001", "vendor": "Mattel", "popularity": 0.85, "trend": "stable"},
+        {"name": "Jenga Classic Game", "price": 9.99, "sku": "TOY-JENGA-001", "vendor": "Hasbro", "popularity": 0.80, "trend": "stable"},
+        {"name": "Peppa Pig Playhouse", "price": 54.99, "sku": "TOY-PEPPA-001", "vendor": "Character Options", "popularity": 0.65, "trend": "declining"},
+        {"name": "Disney Princess Doll", "price": 24.99, "sku": "TOY-DISNEY-001", "vendor": "Mattel", "popularity": 0.83, "trend": "stable"},
+        {"name": "Spider-Man Action Figure", "price": 18.99, "sku": "TOY-SPIDER-001", "vendor": "Hasbro", "popularity": 0.86, "trend": "growing"},
+        {"name": "Frozen Elsa Dress-Up", "price": 32.99, "sku": "TOY-FROZEN-001", "vendor": "Disney", "popularity": 0.81, "trend": "declining"},
+        {"name": "Cars Lightning McQueen", "price": 21.99, "sku": "TOY-CARS-001", "vendor": "Mattel", "popularity": 0.77, "trend": "stable"},
+        {"name": "Paw Patrol Rescue Vehicle", "price": 26.99, "sku": "TOY-PAW-001", "vendor": "Spin Master", "popularity": 0.84, "trend": "growing"},
+        {"name": "Baby Alive Interactive Doll", "price": 49.99, "sku": "TOY-BABY-001", "vendor": "Hasbro", "popularity": 0.69, "trend": "stable"},
+        {"name": "Magic 8 Ball", "price": 11.99, "sku": "TOY-MAGIC-001", "vendor": "Mattel", "popularity": 0.55, "trend": "stable"},
+        {"name": "Slinky Original", "price": 5.99, "sku": "TOY-SLINK-001", "vendor": "Poof Slinky", "popularity": 0.58, "trend": "declining"},
+        {"name": "Connect 4 Game", "price": 14.99, "sku": "TOY-CON4-001", "vendor": "Hasbro", "popularity": 0.74, "trend": "stable"},
+        {"name": "Operation Board Game", "price": 16.99, "sku": "TOY-OP-001", "vendor": "Hasbro", "popularity": 0.67, "trend": "stable"},
+        {"name": "Risk Strategy Game", "price": 39.99, "sku": "TOY-RISK-001", "vendor": "Hasbro", "popularity": 0.52, "trend": "stable"},
+        {"name": "Clue Mystery Game", "price": 19.99, "sku": "TOY-CLUE-001", "vendor": "Hasbro", "popularity": 0.63, "trend": "stable"},
+        {"name": "Yahtzee Dice Game", "price": 8.99, "sku": "TOY-YAH-001", "vendor": "Hasbro", "popularity": 0.71, "trend": "stable"},
+        {"name": "Twister Floor Game", "price": 12.99, "sku": "TOY-TWIST-001", "vendor": "Hasbro", "popularity": 0.76, "trend": "stable"},
+        {"name": "Sorry! Board Game", "price": 17.99, "sku": "TOY-SORRY-001", "vendor": "Hasbro", "popularity": 0.59, "trend": "declining"},
+        {"name": "Trouble Pop-O-Matic", "price": 13.99, "sku": "TOY-TROUB-001", "vendor": "Hasbro", "popularity": 0.61, "trend": "stable"},
+        {"name": "Guess Who? Game", "price": 11.99, "sku": "TOY-GUESS-001", "vendor": "Hasbro", "popularity": 0.66, "trend": "stable"},
+        {"name": "Battleship Strategy Game", "price": 18.99, "sku": "TOY-BATTLE-001", "vendor": "Hasbro", "popularity": 0.64, "trend": "stable"},
+        {"name": "Candy Land Adventure", "price": 9.99, "sku": "TOY-CANDY-001", "vendor": "Hasbro", "popularity": 0.79, "trend": "stable"},
+        {"name": "Chutes and Ladders", "price": 8.99, "sku": "TOY-CHUTES-001", "vendor": "Hasbro", "popularity": 0.73, "trend": "stable"},
+        {"name": "LEGO Friends Heartlake City", "price": 89.99, "sku": "TOY-LEGO-002", "vendor": "LEGO Group", "popularity": 0.75, "trend": "growing"},
+        {"name": "LEGO Technic Race Car", "price": 69.99, "sku": "TOY-LEGO-003", "vendor": "LEGO Group", "popularity": 0.68, "trend": "growing"},
+        {"name": "K'NEX Building Set", "price": 24.99, "sku": "TOY-KNEX-001", "vendor": "K'NEX", "popularity": 0.48, "trend": "declining"},
+        {"name": "Lincoln Logs Cabin", "price": 29.99, "sku": "TOY-LINC-001", "vendor": "K'NEX", "popularity": 0.54, "trend": "declining"},
+        {"name": "Tinker Toys Classic Set", "price": 19.99, "sku": "TOY-TINK-001", "vendor": "K'NEX", "popularity": 0.51, "trend": "declining"},
+        {"name": "Magna-Tiles Clear Colors", "price": 49.99, "sku": "TOY-MAGNA-001", "vendor": "Magna-Tiles", "popularity": 0.70, "trend": "growing"},
+        {"name": "Playmobil Pirate Ship", "price": 79.99, "sku": "TOY-PLAY-001", "vendor": "Playmobil", "popularity": 0.56, "trend": "stable"},
+        {"name": "Calico Critters Family", "price": 34.99, "sku": "TOY-CALI-001", "vendor": "Epoch Everlasting Play", "popularity": 0.62, "trend": "stable"},
+        {"name": "Shopkins Mini Figures", "price": 6.99, "sku": "TOY-SHOP-001", "vendor": "Moose Toys", "popularity": 0.73, "trend": "declining"},
+        {"name": "LOL Surprise Dolls", "price": 9.99, "sku": "TOY-LOL-001", "vendor": "MGA Entertainment", "popularity": 0.88, "trend": "volatile"},
+        {"name": "Hatchimals Surprise Egg", "price": 59.99, "sku": "TOY-HATCH-001", "vendor": "Spin Master", "popularity": 0.67, "trend": "declining"},
+        {"name": "Fidget Spinner Classic", "price": 3.99, "sku": "TOY-FIDG-001", "vendor": "Various", "popularity": 0.45, "trend": "declining"}
+    ]
+    
+    vendors = ["Hasbro", "Mattel", "LEGO Group", "Fisher-Price", "Spin Master", "Disney", "Crayola", "K'NEX", "Playmobil", "Various"]
+    trends = ["stable", "growing", "declining", "volatile"]
+    product_types = [
+        "Building Set", "Action Figure", "Doll", "Board Game", "Card Game", "Puzzle", "Art Supplies",
+        "Educational Toy", "Electronic Toy", "Outdoor Toy", "Vehicle", "Plush Toy", "Dress-Up", "Musical Toy"
+    ]
+    
+    products = []
+    
+    # Use base products first (up to the number available)
+    for i in range(min(num_skus, len(base_products))):
+        products.append(base_products[i].copy())
+    
+    # Generate additional products if needed
+    for i in range(len(base_products), num_skus):
+        sku_num = i + 1
+        product_type = random.choice(product_types)
+        vendor = random.choice(vendors)
+        
+        product = {
+            "name": f"{product_type} #{sku_num}",
+            "price": round(random.uniform(3.99, 199.99), 2),
+            "sku": f"TOY-GEN-{sku_num:03d}",
+            "vendor": vendor,
+            "popularity": round(random.uniform(0.45, 0.95), 2),
+            "trend": random.choice(trends)
+        }
+        products.append(product)
+    
+    return products
+
+# Generate TOY_PRODUCTS based on config
+TOY_PRODUCTS = generate_toy_products(NUMBER_OF_SKUS)
 
 # Customer database for realistic names and emails
 CUSTOMERS = [
@@ -352,6 +418,82 @@ def get_season_from_date(date: datetime) -> str:
     else:
         return "fall"
 
+def generate_discount_code(date: datetime, discount_ratio: float, is_holiday: bool = False) -> str:
+    """Generate realistic discount codes based on season, holidays, and discount amount."""
+    if discount_ratio == 0.0:
+        return ""
+    
+    # Get season and date context
+    season = get_season_from_date(date)
+    month = date.month
+    is_weekend = date.weekday() >= 5
+    
+    # Define discount code patterns based on different contexts
+    seasonal_codes = {
+        "winter": ["WINTER", "HOLIDAY", "COZY", "WARMUP", "SNOW"],
+        "spring": ["SPRING", "BLOOM", "FRESH", "EASTER", "RENEW"],
+        "summer": ["SUMMER", "SUN", "BEACH", "VACATION", "HOT"],
+        "fall": ["FALL", "AUTUMN", "HARVEST", "SCHOOL", "LEAF"]
+    }
+    
+    holiday_codes = {
+        1: ["NEWYEAR", "FRESH", "RESOLUTION"],
+        2: ["VALENTINE", "LOVE", "HEARTS"],
+        3: ["SPRING", "EASTER", "BLOOM"],
+        4: ["EASTER", "SPRING", "BUNNY"],
+        5: ["MOTHER", "MOM", "SPRING"],
+        6: ["FATHER", "DAD", "SUMMER"],
+        7: ["SUMMER", "JULY4", "FREEDOM"],
+        8: ["SUMMER", "VACATION", "HOT"],
+        9: ["BACK2SCHOOL", "AUTUMN", "LEARN"],
+        10: ["HALLOWEEN", "SPOOKY", "FALL"],
+        11: ["THANKSGIVING", "TURKEY", "GRATEFUL"],
+        12: ["HOLIDAY", "XMAS", "WINTER"]
+    }
+    
+    weekend_codes = ["WEEKEND", "RELAX", "FUNDAY", "CHILL"]
+    
+    # Discount amount-based prefixes
+    if discount_ratio >= 0.40:
+        amount_codes = ["MEGA", "SUPER", "HUGE", "BIG", "FLASH"]
+    elif discount_ratio >= 0.25:
+        amount_codes = ["GREAT", "AWESOME", "SPECIAL", "PRIME"]
+    elif discount_ratio >= 0.15:
+        amount_codes = ["SAVE", "DEAL", "GOOD", "NICE"]
+    else:
+        amount_codes = ["WELCOME", "TRY", "FIRST", "SMALL"]
+    
+    # Choose base code
+    if is_holiday and month in holiday_codes:
+        base_code = random.choice(holiday_codes[month])
+    elif is_weekend and random.random() < 0.3:
+        base_code = random.choice(weekend_codes)
+    else:
+        base_code = random.choice(seasonal_codes[season])
+    
+    # Add amount prefix 30% of the time
+    if random.random() < 0.3:
+        prefix = random.choice(amount_codes)
+        code = f"{prefix}{base_code}"
+    else:
+        code = base_code
+    
+    # Add discount percentage as suffix
+    discount_pct = int(discount_ratio * 100)
+    
+    # Add number suffix (percentage or random)
+    if random.random() < 0.7:  # 70% chance to include actual percentage
+        code += str(discount_pct)
+    else:  # 30% chance for creative numbering
+        if discount_ratio >= 0.40:
+            code += random.choice(["50", "40", "MAX"])
+        elif discount_ratio >= 0.25:
+            code += random.choice(["25", "30", "PLUS"])
+        else:
+            code += random.choice(["15", "20", "NOW"])
+    
+    return code
+
 def generate_discount_ratio(date: datetime, subtotal: float, total_quantity: int, is_holiday: bool = False) -> float:
     """Generate realistic discount ratio for Prophet training data."""
     if not ENABLE_DISCOUNTS or subtotal == 0:
@@ -551,6 +693,9 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
     total_quantity = sum(product_quantities)
     discount_ratio, discount_amount = generate_realistic_discount(date, subtotal, total_quantity, is_holiday)
     
+    # Generate discount code based on discount ratio and context
+    discount_code = generate_discount_code(date, discount_ratio, is_holiday)
+    
     # Apply discount to subtotal
     discounted_subtotal = subtotal - discount_amount
     shipping = 0.0 if discounted_subtotal > 50 else random.choice([5.99, 7.99, 9.99])
@@ -575,7 +720,7 @@ def generate_order_data(date: datetime, order_id: int, start_date: datetime = No
                 "Shipping": f"{shipping:.2f}",
                 "Taxes": f"{taxes:.2f}",
                 "Total": f"{total:.2f}",
-                "Discount Code": "",  # Remove discount codes, only use discount_ratio
+                "Discount Code": discount_code,
                 "Discount Amount": f"{discount_amount:.2f}",
                 "discount_ratio": f"{discount_ratio:.4f}",  # New field for Prophet
                 "Shipping Method": random.choice(["Standard", "Express", "Priority"]) if shipping > 0 else "",
@@ -832,6 +977,9 @@ def ensure_minimum_sku_distribution(all_orders: List[Dict], start_date: datetime
                 is_holiday = date in get_us_holidays(start_date, end_date) if start_date and end_date else False
                 discount_ratio, discount_amount = generate_realistic_discount(date, subtotal, quantity, is_holiday)
                 
+                # Generate discount code if there's a discount
+                discount_code = generate_discount_code(date, discount_ratio, discount_amount) if discount_amount > 0 else ""
+                
                 # Apply discount
                 discounted_subtotal = subtotal - discount_amount
                 shipping_cost = 0.0 if discounted_subtotal > 50 else 5.99
@@ -852,7 +1000,7 @@ def ensure_minimum_sku_distribution(all_orders: List[Dict], start_date: datetime
                     "Shipping": f"{shipping_cost:.2f}",
                     "Taxes": f"{taxes:.2f}",
                     "Total": f"{total:.2f}",
-                    "Discount Code": "",  # Remove discount codes, only use discount_ratio
+                    "Discount Code": discount_code,  # Use generated discount code
                     "Discount Amount": f"{discount_amount:.2f}",
                     "discount_ratio": f"{discount_ratio:.4f}",  # New field for Prophet
                     "Shipping Method": "Standard",
@@ -937,11 +1085,12 @@ def generate_synthetic_data():
     """Generate the complete synthetic dataset with advanced realism: event spikes, trend drift, heteroskedastic noise, and improved smoothing."""
     print("🚀 Starting synthetic toy sales data generation...")
     print(f"📊 Configuration:")
+    print(f"   - Number of SKUs (from config): {NUMBER_OF_SKUS}")
     print(f"   - Months to generate: {NUMBER_OF_MONTHS}")
     print(f"   - Average monthly growth: {AVERAGE_MONTHLY_GROWTH*100:.1f}%")
     print(f"   - Weekend boost factor: {WEEKEND_BOOST_FACTOR}x")
     print(f"   - Base daily orders: {BASE_DAILY_ORDERS}")
-    print(f"   - Total toy products: {len(TOY_PRODUCTS)}")
+    print(f"   - Total toy products generated: {len(TOY_PRODUCTS)}")
     end_date = datetime.now() - timedelta(days=1)
     start_date = end_date - timedelta(days=30 * NUMBER_OF_MONTHS)
     print(f"📅 Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")

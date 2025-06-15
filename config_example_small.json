@@ -1,0 +1,35 @@
+{
+    "data_generation": {
+        "number_of_skus": 25,
+        "number_of_months": 6,
+        "average_monthly_growth": 0.05,
+        "weekend_boost_factor": 2.0,
+        "base_daily_orders": 10,
+        "seasonal_factor": 0.2
+    },
+    "prophet_optimization": {
+        "min_sales_days_per_sku": 15,
+        "min_total_units_per_sku": 25,
+        "ensure_sku_distribution": true,
+        "sku_popularity_weights": true
+    },
+    "discounts": {
+        "enable_discounts": true,
+        "discount_ratio_probabilities": {
+            "0.00": 0.80,
+            "0.10": 0.10,
+            "0.15": 0.05,
+            "0.20": 0.03,
+            "0.25": 0.02
+        }
+    },
+    "quantity_settings": {
+        "enable_quantity_variety": true,
+        "min_quantity": 0,
+        "max_quantity": 6,
+        "stock_out_probability": 0.03,
+        "bulk_order_probability": 0.15,
+        "low_inventory_probability": 0.10,
+        "high_demand_spike_probability": 0.08
+    }
+}

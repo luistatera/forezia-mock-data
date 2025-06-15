@@ -2,6 +2,27 @@
 
 A comprehensive synthetic data generation toolkit for creating realistic toy sales data, specifically designed for machine learning forecasting models like Facebook Prophet.
 
+## ✅ Recent Updates
+
+### Discount Code Generation Fixed (Latest)
+The system now properly generates realistic discount codes based on:
+- **Seasonal patterns**: SPRING, SUMMER, FALL, WINTER codes
+- **Holiday periods**: HOLIDAY, MEMORIAL, THANKSGIVING, etc.
+- **Marketing themes**: FRESH, RENEW, WARMUP, etc.
+- **Discount amounts**: Codes reflect the actual discount percentage (10, 15, 20, etc.)
+
+**Statistics from latest generation:**
+- Total orders: 8,904
+- Orders with discount codes: 2,720 (30.5%)
+- Top discount codes: SPRING10, RENEW10, EASTER15, SPRING15, EASTER20
+
+### Configuration System (Previous Update)
+Added comprehensive JSON-based configuration system allowing you to:
+- Set the number of SKUs to generate
+- Configure discount percentages and frequency
+- Adjust Prophet model optimization settings
+- Customize order volume and growth patterns
+
 ## 🎯 Overview
 
 This project generates realistic e-commerce sales data for a toy store with sophisticated patterns including seasonal trends, weekly cycles, product popularity variations, and growth trajectories. The data is specifically optimized for time series forecasting and machine learning applications.
@@ -11,12 +32,13 @@ This project generates realistic e-commerce sales data for a toy store with soph
 ```
 forezia-mock-data/
 ├── generate_synthetic_orders.py    # Main data generator
+├── config.json                     # Configuration file for all settings
+├── config_helper.py                # Interactive configuration tool
 ├── analyze_synthetic_data.py       # Data analysis and validation
 ├── visualize_sales_patterns.py     # Sales pattern visualization
 ├── expand_orders_csv.py            # Order data expansion utility
 ├── forezia_forecast.ipynb          # Prophet forecasting notebook
 ├── outlier_examples.py             # Outlier detection examples
-├── orders_export.csv               # Original order export
 ├── toy_sales_*.csv                 # Generated synthetic data files
 ├── sku_daily_sales.csv            # SKU-level daily sales data
 └── top_sku_daily_sales.csv        # Top SKU daily sales data
@@ -60,9 +82,43 @@ Open and run the Jupyter notebook:
 jupyter notebook forezia_forecast.ipynb
 ```
 
+### 🔧 Customizing Configuration
+
+To change the number of SKUs or other settings, edit the `config.json` file:
+
+```json
+{
+    "data_generation": {
+        "number_of_skus": 100,    // Generate 100 different products
+        "number_of_months": 6,    // Generate 6 months of data
+        "weekend_boost_factor": 2.0 // 100% weekend sales boost
+    }
+}
+```
+
+Then run the generator:
+```bash
+python generate_synthetic_orders.py
+```
+
+The system will automatically generate the specified number of products, using the existing realistic templates for the first 50 SKUs and creating additional products as needed.
+
+### 🛠️ Configuration Helper
+
+Use the configuration helper tool to easily create or modify your config file:
+
+```bash
+python config_helper.py
+```
+
+This interactive tool will help you:
+- Create a default config.json file
+- Validate your existing configuration
+- Interactively customize settings
+
 ## 🎮 Product Catalog
 
-The generator includes **50 realistic toy products** across various categories:
+The generator includes **configurable number of realistic toy products** (default: 50) across various categories:
 
 - **Building Sets**: LEGO, K'NEX, Lincoln Logs, Magna-Tiles
 - **Action Figures**: Transformers, Spider-Man, Pokémon
@@ -107,40 +163,63 @@ Each product includes:
 
 ## ⚙️ Configuration
 
-Key configuration variables in `generate_synthetic_orders.py`:
+The data generator now uses a **configuration file** (`config.json`) to control all aspects of data generation. This makes it easy to adjust parameters without modifying code.
 
-```python
-# Time Period
-NUMBER_OF_MONTHS = 12          # Generate 12 months of data
-AVERAGE_MONTHLY_GROWTH = 0.08  # 8% monthly growth
+### Configuration File Structure
 
-# Pattern Strength
-WEEKEND_BOOST_FACTOR = 1.8     # 80% weekend sales increase
-BASE_DAILY_ORDERS = 15         # Starting daily order volume
-SEASONAL_FACTOR = 0.3          # Seasonal variation strength
-
-# Prophet Optimization
-MIN_SALES_DAYS_PER_SKU = 15    # Minimum sales days per product
-MIN_TOTAL_UNITS_PER_SKU = 20   # Minimum total units per product
-ENSURE_SKU_DISTRIBUTION = True  # Force minimum distribution
-
-# Quantity Patterns
-ENABLE_QUANTITY_VARIETY = True  # Enable varied quantity patterns
-STOCK_OUT_PROBABILITY = 0.05   # 5% chance of stock-outs
-BULK_ORDER_PROBABILITY = 0.20  # 20% chance of bulk orders
-
-# Discount System
-ENABLE_DISCOUNTS = True         # Enable discount functionality
-DISCOUNT_RATIO_PROBABILITIES = { # Probability distribution for discount ratios
-    0.00: 0.75,   # 75% of orders have no discount (most common)
-    0.10: 0.08,   # 8% have 10% discount (light promotions)
-    0.15: 0.06,   # 6% have 15% discount
-    0.20: 0.05,   # 5% have 20% discount
-    0.25: 0.03,   # 3% have 25% discount
-    0.30: 0.02,   # 2% have 30% discount (seasonal sales)
-    0.40: 0.005,  # 0.5% have 40% discount (rare big promotions)
-    0.50: 0.005,  # 0.5% have 50% discount (very rare deep promotions)
+```json
+{
+    "data_generation": {
+        "number_of_skus": 50,           // Number of SKUs to generate
+        "number_of_months": 12,         // Generate 12 months of data
+        "average_monthly_growth": 0.08, // 8% monthly growth
+        "weekend_boost_factor": 1.8,    // 80% weekend sales increase
+        "base_daily_orders": 15,        // Starting daily order volume
+        "seasonal_factor": 0.3          // Seasonal variation strength
+    },
+    "prophet_optimization": {
+        "min_sales_days_per_sku": 30,   // Minimum sales days per product
+        "min_total_units_per_sku": 50,  // Minimum total units per product
+        "ensure_sku_distribution": true, // Force minimum distribution
+        "sku_popularity_weights": true   // Use realistic popularity weights
+    },
+    "discounts": {
+        "enable_discounts": true,        // Enable discount functionality
+        "discount_ratio_probabilities": {
+            "0.00": 0.75,  // 75% of orders have no discount
+            "0.10": 0.08,  // 8% have 10% discount
+            "0.15": 0.06,  // 6% have 15% discount
+            "0.20": 0.05,  // 5% have 20% discount
+            "0.25": 0.03,  // 3% have 25% discount
+            "0.30": 0.02,  // 2% have 30% discount
+            "0.40": 0.005, // 0.5% have 40% discount
+            "0.50": 0.005  // 0.5% have 50% discount
+        }
+    },
+    "quantity_settings": {
+        "enable_quantity_variety": true, // Enable varied quantity patterns
+        "min_quantity": 0,              // Minimum quantity (0 = stock-outs)
+        "max_quantity": 8,              // Maximum quantity per line item
+        "stock_out_probability": 0.05,  // 5% chance of stock-outs
+        "bulk_order_probability": 0.20, // 20% chance of bulk orders
+        "low_inventory_probability": 0.15,
+        "high_demand_spike_probability": 0.10
+    }
 }
+```
+
+### Key Configuration Options
+
+- **`number_of_skus`**: Control how many different product SKUs are included in the mock data (default: 50)
+- **`number_of_months`**: How many months of historical data to generate (default: 12)  
+- **`average_monthly_growth`**: Monthly growth rate for realistic business growth (default: 8%)
+- **`weekend_boost_factor`**: Sales multiplier for weekends (default: 1.8x)
+- **`enable_discounts`**: Enable/disable the discount system (default: true)
+
+### Legacy Configuration
+
+If no `config.json` file is found, the system will use default values. The old configuration variables in `generate_synthetic_orders.py` are still supported as fallbacks:
+
 ```
 
 ## 📈 Generated Data Format
