@@ -1,7 +1,7 @@
 {
     "data_generation": {
         "number_of_skus": 1,
-        "number_of_months": 12,
+        "number_of_months": 24,
         "average_monthly_growth": 0.08,
         "weekend_boost_factor": 1.8,
         "base_daily_orders": 15,
