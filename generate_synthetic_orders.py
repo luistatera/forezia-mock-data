@@ -31,6 +31,7 @@ def load_config():
 CONFIG = load_config()
 
 # Configuration Variables - loaded from config.json or using defaults
+NUMBER_OF_DAYS_TO_GENERATE = CONFIG.get('data_generation', {}).get('NUMBER_OF_DAYS_TO_GENERATE', 30) # Default to 30 if not found
 NUMBER_OF_MONTHS = CONFIG.get('data_generation', {}).get('number_of_months', 12)
 AVERAGE_MONTHLY_GROWTH = CONFIG.get('data_generation', {}).get('average_monthly_growth', 0.08)
 WEEKEND_BOOST_FACTOR = CONFIG.get('data_generation', {}).get('weekend_boost_factor', 1.8)
@@ -1005,13 +1006,16 @@ def generate_synthetic_data():
     print("🚀 Starting synthetic toy sales data generation...")
     print(f"📊 Configuration:")
     print(f"   - Number of SKUs (from config): {NUMBER_OF_SKUS}")
-    print(f"   - Months to generate: {NUMBER_OF_MONTHS}")
+    print(f"   - Days to generate (from config): {NUMBER_OF_DAYS_TO_GENERATE}") # Added for clarity
+    # print(f"   - Months to generate: {NUMBER_OF_MONTHS}") # Commented out or remove if NUMBER_OF_DAYS_TO_GENERATE is primary
     print(f"   - Average monthly growth: {AVERAGE_MONTHLY_GROWTH*100:.1f}%")
     print(f"   - Weekend boost factor: {WEEKEND_BOOST_FACTOR}x")
     print(f"   - Base daily orders: {BASE_DAILY_ORDERS}")
     print(f"   - Total toy products generated: {len(TOY_PRODUCTS)}")
     end_date = datetime.now() - timedelta(days=1)
-    start_date = end_date - timedelta(days=30 * NUMBER_OF_MONTHS)
+    # Calculate start_date based on NUMBER_OF_DAYS_TO_GENERATE
+    start_date = end_date - timedelta(days=NUMBER_OF_DAYS_TO_GENERATE)
+    # start_date = end_date - timedelta(days=30 * NUMBER_OF_MONTHS) # Old calculation
     print(f"📅 Date range: {start_date.strftime('%Y-%m-%d')} to {end_date.strftime('%Y-%m-%d')}")
     print(f"📊 Generating data for {(end_date - start_date).days} days")
     all_orders = []
@@ -1069,10 +1073,12 @@ def generate_synthetic_data():
             "Outstanding Balance", "Employee", "Location", "Device ID", "Id", "Tags", "Risk Level",
             "Source", "Lineitem discount", "Tax 1 Name", "Tax 1 Value", "Tax 2 Name", "Tax 2 Value",
             "Tax 3 Name", "Tax 3 Value", "Tax 4 Name", "Tax 4 Value", "Tax 5 Name", "Tax 5 Value",
-            "Phone", "Receipt Number", "Duties", "Billing Province Name", "Shipping Province Name",
-            "Payment ID", "Payment Terms Name", "Next Payment Due At", "Payment References", 
-            "is_weekend", "is_holiday", "stockout", "Lineitem grams", "Lineitem variant id", 
-            "Processed at", "Customer", "Lineitem variant", "Updated at", "Lineitem product id"
+            # Adding missing fields from the error message
+            "Customer", "Receipt Number", "Billing Province Name", "Lineitem variant id", 
+            "is_holiday", "Updated at", "Payment References", "Shipping Province Name", 
+            "Lineitem variant", "Processed at", "Duties", "Payment ID", "stockout", 
+            "Payment Terms Name", "Phone", "is_weekend", "Next Payment Due At", 
+            "Lineitem product id", "Lineitem grams"
         ]
 
         with open(output_filename, 'w', newline='', encoding='utf-8') as csvfile:
