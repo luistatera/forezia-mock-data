@@ -36,6 +36,14 @@ AVERAGE_MONTHLY_GROWTH = CONFIG.get('data_generation', {}).get('average_monthly_
 WEEKEND_BOOST_FACTOR = CONFIG.get('data_generation', {}).get('weekend_boost_factor', 1.8)
 BASE_DAILY_ORDERS = CONFIG.get('data_generation', {}).get('base_daily_orders', 15)
 SEASONAL_FACTOR = CONFIG.get('data_generation', {}).get('seasonal_factor', 0.3)
+RANDOM_NOISE_FACTOR = CONFIG.get('data_generation', {}).get('random_noise_factor', 0.1)
+
+# Random Noise Configuration
+# The RANDOM_NOISE_FACTOR adds controlled randomness to simulate real-world demand fluctuations
+# - 0.1 = ±10% Gaussian noise (realistic for most businesses)
+# - 0.05 = ±5% noise (more stable demand)
+# - 0.2 = ±20% noise (highly volatile demand)
+# This affects both daily order counts and individual quantity calculations
 
 # Number of SKUs to generate (loaded from config)
 NUMBER_OF_SKUS = CONFIG.get('data_generation', {}).get('number_of_skus', 50)
@@ -345,8 +353,11 @@ def calculate_daily_orders(date: datetime, month_index: int, us_holiday_dates=No
     # Mild autocorrelation
     if prev_orders is not None:
         base_orders = 0.5 * base_orders + 0.5 * prev_orders
-    # Noise ~ Normal(mean, 0.1*mean)
-    noise = random.gauss(0, 0.1 * max(mean_sku_sales, 1))
+    
+    # Apply configurable Gaussian noise for realistic demand fluctuation
+    # Noise factor controls the intensity of random fluctuation (0.1 = ±10%)
+    noise = random.gauss(0, RANDOM_NOISE_FACTOR * max(base_orders, 1))
+    
     # Clamp to reasonable range
     orders = int(max(5, min(40, base_orders + noise)))
     return orders
@@ -375,9 +386,11 @@ def generate_varied_quantity(product: Dict, date: datetime, sku_history: List[in
     if not is_weekend and random.random() < 0.03:
         return 0
     base_qty = random.choices(pattern['values'], weights=pattern['weights'])[0]
-    # Heteroskedastic noise: scale by mean
+    
+    # Apply configurable noise to quantity generation
+    # Use RANDOM_NOISE_FACTOR for consistent noise across all calculations
     mean_qty = sum(pattern['values']) / len(pattern['values'])
-    noisy_qty = int(round(base_qty + random.gauss(0, 0.15 * mean_qty)))
+    noisy_qty = int(round(base_qty + random.gauss(0, RANDOM_NOISE_FACTOR * max(mean_qty, 1))))
     final_qty = max(MIN_QUANTITY, min(MAX_QUANTITY, noisy_qty))
     return max(1, final_qty)
 
@@ -400,8 +413,11 @@ def get_demand_pattern(popularity: float, date: datetime) -> str:
     else:
         return 'variable'
 
-def add_realistic_noise(base_value: int, noise_factor: float = 0.15) -> int:
-    """Add realistic noise to quantity values."""
+def add_realistic_noise(base_value: int, noise_factor: float = None) -> int:
+    """Add realistic noise to quantity values using configurable noise factor."""
+    if noise_factor is None:
+        noise_factor = RANDOM_NOISE_FACTOR
+    
     noise = random.uniform(-noise_factor, noise_factor)
     noisy_value = int(base_value * (1 + noise))
     return max(1, min(MAX_QUANTITY, noisy_value))

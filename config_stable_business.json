@@ -1,12 +1,12 @@
 {
     "data_generation": {
-        "number_of_skus": 50,
+        "number_of_skus": 1,
         "number_of_months": 12,
         "average_monthly_growth": 0.08,
         "weekend_boost_factor": 1.8,
         "base_daily_orders": 15,
         "seasonal_factor": 0.3,
-        "random_noise_factor": 0.1
+        "random_noise_factor": 0.05
     },
     "prophet_optimization": {
         "min_sales_days_per_sku": 30,
