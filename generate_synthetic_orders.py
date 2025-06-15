@@ -38,6 +38,8 @@ WEEKEND_BOOST_FACTOR = CONFIG.get('data_generation', {}).get('weekend_boost_fact
 BASE_DAILY_ORDERS = CONFIG.get('data_generation', {}).get('base_daily_orders', 15)
 SEASONAL_FACTOR = CONFIG.get('data_generation', {}).get('seasonal_factor', 0.3)
 RANDOM_NOISE_FACTOR = CONFIG.get('data_generation', {}).get('random_noise_factor', 0.1)
+VARIABLE_GROWTH_PER_SKU = CONFIG.get('data_generation', {}).get('variable_growth_per_sku', False)
+GROWTH_RANGE = CONFIG.get('data_generation', {}).get('growth_range', [0.02, 0.15])
 
 # Random Noise Configuration
 # The RANDOM_NOISE_FACTOR adds controlled randomness to simulate real-world demand fluctuations
@@ -307,14 +309,18 @@ def get_us_holidays(start_date, end_date):
     us_holidays = holidays.country_holidays('US', years=range(start_date.year, end_date.year + 1))
     return set(us_holidays.keys())
 
-def calculate_daily_orders(date: datetime, month_index: int, us_holiday_dates=None, prev_orders: int = None, sku: str = None, sku_trend: float = 0.0, mean_sku_sales: float = 10.0) -> int:
+def calculate_daily_orders(date: datetime, month_index: int, us_holiday_dates=None, prev_orders: int = None, sku: str = None, sku_trend: float = 0.0, mean_sku_sales: float = 10.0, sku_specific_growth: float = None) -> int:
     """Calculate number of orders for a given date with advanced realism: event spikes, trend drift, heteroskedastic noise, and improved outlier smoothing."""
     if us_holiday_dates is None:
         us_holiday_dates = set()
     # --- Trend Drift ---
     drift = sku_trend * (date - (date.replace(month=1, day=1))).days
     # --- Base multipliers ---
-    monthly_multiplier = (1 + AVERAGE_MONTHLY_GROWTH * random.uniform(0.92, 1.08)) ** month_index
+    current_monthly_growth = AVERAGE_MONTHLY_GROWTH
+    if VARIABLE_GROWTH_PER_SKU and sku_specific_growth is not None:
+        current_monthly_growth = sku_specific_growth
+    
+    monthly_multiplier = (1 + current_monthly_growth * random.uniform(0.92, 1.08)) ** month_index
     weekend_multiplier = 1.18 if date.weekday() >= 5 else 1.0
     seasonal_multiplier = calculate_seasonal_factor(date)
     weekday = date.weekday()

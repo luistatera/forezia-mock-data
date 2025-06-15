@@ -1,18 +1,5 @@
 
 
-### 🔹 **3. Vary `average_monthly_growth` Per SKU**
-
-If you're generating >1 SKU soon:
-
-```json
-"variable_growth_per_sku": true,
-"growth_range": [0.02, 0.15]
-```
-
-You can assign slower growth to niche SKUs and rapid growth to trending ones.
-
----
-
 ### 🔹 **4. Improve Quantity Realism**
 
 Instead of flat `[0, 8]`, use skewed distribution:
